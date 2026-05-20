@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Plus, Check } from "lucide-react";
 import { GlassCard, PageHeader } from "@/components/app-shell";
 import { Pill, SectionTitle } from "@/components/ui-bits";
-import { goals } from "@/lib/mock-data";
+import { useAppData } from "@/state/app-data-context";
 import { brl, dateBR } from "@/lib/format";
 
 export const Route = createFileRoute("/metas")({
@@ -11,6 +11,7 @@ export const Route = createFileRoute("/metas")({
 });
 
 function Metas() {
+  const { goals } = useAppData();
   return (
     <div className="space-y-6">
       <PageHeader

@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Star, Filter, Download, MoreHorizontal, Search, Tag as TagIcon } from "lucide-react";
 import { GlassCard, PageHeader } from "@/components/app-shell";
 import { Pill } from "@/components/ui-bits";
-import { categories, cards, transactions } from "@/lib/mock-data";
+import { useAppData } from "@/state/app-data-context";
 import { brl, dateBR } from "@/lib/format";
 import { useMemo, useState } from "react";
 
@@ -14,6 +14,7 @@ export const Route = createFileRoute("/transacoes")({
 const filterChips = ["Este mês", "Cartões", "Manual", "Recorrente", "Pendentes", "Maiores valores"];
 
 function Transacoes() {
+  const { transactions, categories, cards } = useAppData();
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
 
@@ -21,7 +22,7 @@ function Transacoes() {
     return transactions.filter((t) =>
       q ? (t.merchant + t.description).toLowerCase().includes(q.toLowerCase()) : true,
     );
-  }, [q]);
+  }, [transactions, q]);
 
   const toggle = (id: string) =>
     setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));

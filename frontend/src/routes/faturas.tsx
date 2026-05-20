@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { FileText, AlertCircle, CheckCircle2, Clock, Copy, RefreshCw, Trash2, Upload, ChevronDown } from "lucide-react";
 import { GlassCard, PageHeader } from "@/components/app-shell";
 import { Pill, SectionTitle } from "@/components/ui-bits";
-import { cards, statements, transactions, categories } from "@/lib/mock-data";
+import { useAppData } from "@/state/app-data-context";
 import { brl, dateBR } from "@/lib/format";
 import { useState } from "react";
 
@@ -19,10 +19,22 @@ const statusTone: Record<string, "neutral" | "positive" | "negative" | "warning"
 };
 
 function Faturas() {
-  const [selected, setSelected] = useState(statements[0].id);
-  const current = statements.find((s) => s.id === selected)!;
-  const card = cards.find((c) => c.id === current.cardId)!;
+  const { cards, statements, transactions, categories } = useAppData();
+  const [selected, setSelected] = useState(() => statements[0]?.id ?? "");
+  const current = statements.find((s) => s.id === selected);
+  const card = current ? cards.find((c) => c.id === current.cardId) : undefined;
   const items = transactions.slice(0, 12);
+
+  if (!current || !card) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Faturas" subtitle="Importe, revise e gerencie suas faturas Santander e demais cartões." />
+        <div className="glass rounded-2xl p-10 text-center text-muted-foreground text-sm">
+          Nenhuma fatura disponível ainda. Importe um PDF para começar.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMemo } from "react";
 import {
   Area,
   AreaChart,
@@ -23,16 +24,14 @@ import {
 } from "lucide-react";
 import { GlassCard, PageHeader } from "@/components/app-shell";
 import { Pill, SectionTitle } from "@/components/ui-bits";
+import { useAppData } from "@/state/app-data-context";
 import {
-  categories,
-  categorySpend,
-  monthlyTrend,
-  topMerchants,
-  totals,
-  transactions,
-  recurrences,
-  goals,
-} from "@/lib/mock-data";
+  computeTotals,
+  computeCategorySpend,
+  computeMonthlyTrend,
+  computeTopMerchants,
+  filterCurrentMonth,
+} from "@/lib/selectors";
 import { brl, dateBR } from "@/lib/format";
 
 export const Route = createFileRoute("/")({
@@ -46,8 +45,18 @@ export const Route = createFileRoute("/")({
 });
 
 function Dashboard() {
+  const { transactions, categories, goals, recurring } = useAppData();
+  const currentMonth = useMemo(() => filterCurrentMonth(transactions), [transactions]);
+  const totals = useMemo(() => computeTotals(currentMonth), [currentMonth]);
+  const categorySpend = useMemo(
+    () => computeCategorySpend(currentMonth, categories),
+    [currentMonth, categories],
+  );
+  const monthlyTrend = useMemo(() => computeMonthlyTrend(transactions), [transactions]);
+  const topMerchants = useMemo(() => computeTopMerchants(currentMonth), [currentMonth]);
+
   const net = totals.income - totals.expenses;
-  const recent = transactions.slice(0, 6);
+  const recent = currentMonth.slice(0, 6);
   const topCats = categorySpend.slice(0, 5);
 
   return (
@@ -293,7 +302,7 @@ function Dashboard() {
         <GlassCard>
           <SectionTitle title="Próximas recorrências" hint="A vencer em breve" />
           <div className="space-y-2.5">
-            {recurrences.filter((r) => r.enabled).slice(0, 5).map((r) => {
+            {recurring.filter((r) => r.enabled).slice(0, 5).map((r) => {
               const cat = categories.find((c) => c.id === r.categoryId);
               return (
                 <div key={r.id} className="flex items-center gap-3 py-1">

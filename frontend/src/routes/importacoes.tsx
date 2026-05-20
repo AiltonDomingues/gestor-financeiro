@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { FileText, RefreshCw, Eye, Trash2, Upload, AlertCircle, CheckCircle2 } from "lucide-react";
 import { GlassCard, PageHeader } from "@/components/app-shell";
 import { Pill, SectionTitle } from "@/components/ui-bits";
-import { imports } from "@/lib/mock-data";
+import { useAppData } from "@/state/app-data-context";
 import { dateBR } from "@/lib/format";
 
 export const Route = createFileRoute("/importacoes")({
@@ -11,6 +11,7 @@ export const Route = createFileRoute("/importacoes")({
 });
 
 function Importacoes() {
+  const { imports } = useAppData();
   return (
     <div className="space-y-6">
       <PageHeader
@@ -41,7 +42,7 @@ function Importacoes() {
             </thead>
             <tbody>
               {imports.map((i) => {
-                const ok = i.status === "Concluída";
+                const ok = i.status === "completed";
                 return (
                   <tr key={i.id} className="border-b border-glass-border/60 hover:bg-accent/20 transition">
                     <td className="px-5 py-3">

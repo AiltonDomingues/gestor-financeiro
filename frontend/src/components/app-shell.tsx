@@ -20,8 +20,8 @@ import {
   Moon,
   Bell,
 } from "lucide-react";
-import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { useAppData } from "@/state/app-data-context";
 
 const nav: { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean }[] = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
@@ -40,18 +40,23 @@ const nav: { to: string; label: string; icon: typeof LayoutDashboard; exact?: bo
 ];
 
 function useTheme() {
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
-  useEffect(() => {
-    const root = document.documentElement;
-    root.classList.toggle("light", theme === "light");
-    root.classList.toggle("dark", theme === "dark");
-  }, [theme]);
+  const { settings, updateSettings } = useAppData();
+  const theme = settings.theme;
+  const setTheme = (t: "dark" | "light") => void updateSettings({ theme: t });
   return { theme, setTheme };
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { theme, setTheme } = useTheme();
+  const { settings } = useAppData();
+  const userName = settings.userName;
+  const initials = userName
+    .split(" ")
+    .slice(0, 2)
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase();
 
   return (
     <div className="min-h-screen w-full flex">
@@ -107,10 +112,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {/* Footer / user */}
           <div className="mt-3 pt-3 border-t border-glass-border flex items-center gap-3 px-2">
             <div className="size-8 rounded-full bg-gradient-to-br from-chart-2 to-chart-3 grid place-items-center text-[12px] font-semibold text-primary-foreground">
-              AD
+              {initials}
             </div>
             <div className="flex flex-col leading-tight min-w-0">
-              <span className="text-[13px] font-medium truncate">Ailton Domingues</span>
+              <span className="text-[13px] font-medium truncate">{userName}</span>
               <span className="text-[11px] text-muted-foreground truncate">Local · Criptografado</span>
             </div>
           </div>

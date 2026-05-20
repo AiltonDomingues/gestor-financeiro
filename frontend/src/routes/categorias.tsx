@@ -2,8 +2,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Plus, GripVertical, MoreHorizontal, Wand2 } from "lucide-react";
 import { GlassCard, PageHeader } from "@/components/app-shell";
 import { Pill, SectionTitle } from "@/components/ui-bits";
-import { categorySpend } from "@/lib/mock-data";
+import { useAppData } from "@/state/app-data-context";
+import {
+  computeCategorySpend,
+  filterCurrentMonth,
+} from "@/lib/selectors";
 import { brl, pct } from "@/lib/format";
+import { useMemo } from "react";
 
 export const Route = createFileRoute("/categorias")({
   head: () => ({ meta: [{ title: "Categorias — Caderneta" }] }),
@@ -18,6 +23,12 @@ const rules = [
 ];
 
 function Categorias() {
+  const { transactions, categories } = useAppData();
+  const currentMonth = useMemo(() => filterCurrentMonth(transactions), [transactions]);
+  const categorySpend = useMemo(
+    () => computeCategorySpend(currentMonth, categories),
+    [currentMonth, categories],
+  );
   const total = categorySpend.reduce((s, c) => s + c.spent, 0);
   return (
     <div className="space-y-6">

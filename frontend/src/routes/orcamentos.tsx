@@ -2,8 +2,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Plus, Copy } from "lucide-react";
 import { GlassCard, PageHeader } from "@/components/app-shell";
 import { Pill, SectionTitle, Stat } from "@/components/ui-bits";
-import { categorySpend } from "@/lib/mock-data";
+import { useAppData } from "@/state/app-data-context";
+import {
+  computeCategorySpend,
+  filterCurrentMonth,
+} from "@/lib/selectors";
 import { brl } from "@/lib/format";
+import { useMemo } from "react";
 
 export const Route = createFileRoute("/orcamentos")({
   head: () => ({ meta: [{ title: "Orçamentos — Caderneta" }] }),
@@ -11,6 +16,12 @@ export const Route = createFileRoute("/orcamentos")({
 });
 
 function Orcamentos() {
+  const { transactions, categories } = useAppData();
+  const currentMonth = useMemo(() => filterCurrentMonth(transactions), [transactions]);
+  const categorySpend = useMemo(
+    () => computeCategorySpend(currentMonth, categories),
+    [currentMonth, categories],
+  );
   const cats = categorySpend.filter((c) => c.budget);
   const totalBudget = cats.reduce((s, c) => s + (c.budget ?? 0), 0);
   const totalSpent = cats.reduce((s, c) => s + c.spent, 0);

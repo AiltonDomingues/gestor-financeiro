@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Plus, Calendar } from "lucide-react";
 import { GlassCard, PageHeader } from "@/components/app-shell";
 import { Pill, SectionTitle } from "@/components/ui-bits";
-import { categories, recurrences } from "@/lib/mock-data";
+import { useAppData } from "@/state/app-data-context";
 import { brl, dateBR } from "@/lib/format";
 
 export const Route = createFileRoute("/recorrencias")({
@@ -11,8 +11,9 @@ export const Route = createFileRoute("/recorrencias")({
 });
 
 function Recorrencias() {
-  const desp = recurrences.filter((r) => r.type === "despesa");
-  const rec = recurrences.filter((r) => r.type === "receita");
+  const { categories, recurring } = useAppData();
+  const desp = recurring.filter((r) => r.type === "despesa");
+  const rec = recurring.filter((r) => r.type === "receita");
   const totalDesp = desp.filter(r => r.enabled).reduce((s, r) => s + r.amount, 0);
   const totalRec = rec.filter(r => r.enabled).reduce((s, r) => s + r.amount, 0);
 
@@ -38,7 +39,7 @@ function Recorrencias() {
           <button className="text-[12px] glass-soft px-3 py-1.5 rounded-lg flex items-center gap-1.5"><Calendar className="size-3.5" /> Calendário</button>
         </div>
         <div className="divide-y divide-glass-border">
-          {recurrences.map((r) => {
+          {recurring.map((r) => {
             const cat = categories.find((c) => c.id === r.categoryId);
             return (
               <div key={r.id} className="flex items-center gap-3 px-5 py-3 hover:bg-accent/20 transition">

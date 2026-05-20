@@ -10,6 +10,7 @@ import {
 
 import appCss from "../styles.css?url";
 import { AppShell } from "@/components/app-shell";
+import { AppDataProvider } from "@/state/app-data-context";
 
 function NotFoundComponent() {
   return (
@@ -103,9 +104,11 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
     <QueryClientProvider client={queryClient}>
-      <AppShell>
-        <Outlet />
-      </AppShell>
+      <AppDataProvider>
+        <AppShell>
+          <Outlet />
+        </AppShell>
+      </AppDataProvider>
     </QueryClientProvider>
   );
 }
