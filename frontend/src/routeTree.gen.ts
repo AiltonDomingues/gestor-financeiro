@@ -14,8 +14,10 @@ import { Route as RelatoriosRouteImport } from './routes/relatorios'
 import { Route as RecorrenciasRouteImport } from './routes/recorrencias'
 import { Route as OrcamentosRouteImport } from './routes/orcamentos'
 import { Route as MetasRouteImport } from './routes/metas'
+import { Route as InvestimentosRouteImport } from './routes/investimentos'
 import { Route as InsightsRouteImport } from './routes/insights'
 import { Route as ImportacoesRouteImport } from './routes/importacoes'
+import { Route as FluxoRouteImport } from './routes/fluxo'
 import { Route as FaturasRouteImport } from './routes/faturas'
 import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
 import { Route as CategoriasRouteImport } from './routes/categorias'
@@ -48,6 +50,11 @@ const MetasRoute = MetasRouteImport.update({
   path: '/metas',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InvestimentosRoute = InvestimentosRouteImport.update({
+  id: '/investimentos',
+  path: '/investimentos',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const InsightsRoute = InsightsRouteImport.update({
   id: '/insights',
   path: '/insights',
@@ -56,6 +63,11 @@ const InsightsRoute = InsightsRouteImport.update({
 const ImportacoesRoute = ImportacoesRouteImport.update({
   id: '/importacoes',
   path: '/importacoes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FluxoRoute = FluxoRouteImport.update({
+  id: '/fluxo',
+  path: '/fluxo',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FaturasRoute = FaturasRouteImport.update({
@@ -96,8 +108,10 @@ export interface FileRoutesByFullPath {
   '/categorias': typeof CategoriasRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/faturas': typeof FaturasRoute
+  '/fluxo': typeof FluxoRoute
   '/importacoes': typeof ImportacoesRoute
   '/insights': typeof InsightsRoute
+  '/investimentos': typeof InvestimentosRoute
   '/metas': typeof MetasRoute
   '/orcamentos': typeof OrcamentosRoute
   '/recorrencias': typeof RecorrenciasRoute
@@ -111,8 +125,10 @@ export interface FileRoutesByTo {
   '/categorias': typeof CategoriasRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/faturas': typeof FaturasRoute
+  '/fluxo': typeof FluxoRoute
   '/importacoes': typeof ImportacoesRoute
   '/insights': typeof InsightsRoute
+  '/investimentos': typeof InvestimentosRoute
   '/metas': typeof MetasRoute
   '/orcamentos': typeof OrcamentosRoute
   '/recorrencias': typeof RecorrenciasRoute
@@ -127,8 +143,10 @@ export interface FileRoutesById {
   '/categorias': typeof CategoriasRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/faturas': typeof FaturasRoute
+  '/fluxo': typeof FluxoRoute
   '/importacoes': typeof ImportacoesRoute
   '/insights': typeof InsightsRoute
+  '/investimentos': typeof InvestimentosRoute
   '/metas': typeof MetasRoute
   '/orcamentos': typeof OrcamentosRoute
   '/recorrencias': typeof RecorrenciasRoute
@@ -144,8 +162,10 @@ export interface FileRouteTypes {
     | '/categorias'
     | '/configuracoes'
     | '/faturas'
+    | '/fluxo'
     | '/importacoes'
     | '/insights'
+    | '/investimentos'
     | '/metas'
     | '/orcamentos'
     | '/recorrencias'
@@ -159,8 +179,10 @@ export interface FileRouteTypes {
     | '/categorias'
     | '/configuracoes'
     | '/faturas'
+    | '/fluxo'
     | '/importacoes'
     | '/insights'
+    | '/investimentos'
     | '/metas'
     | '/orcamentos'
     | '/recorrencias'
@@ -174,8 +196,10 @@ export interface FileRouteTypes {
     | '/categorias'
     | '/configuracoes'
     | '/faturas'
+    | '/fluxo'
     | '/importacoes'
     | '/insights'
+    | '/investimentos'
     | '/metas'
     | '/orcamentos'
     | '/recorrencias'
@@ -190,8 +214,10 @@ export interface RootRouteChildren {
   CategoriasRoute: typeof CategoriasRoute
   ConfiguracoesRoute: typeof ConfiguracoesRoute
   FaturasRoute: typeof FaturasRoute
+  FluxoRoute: typeof FluxoRoute
   ImportacoesRoute: typeof ImportacoesRoute
   InsightsRoute: typeof InsightsRoute
+  InvestimentosRoute: typeof InvestimentosRoute
   MetasRoute: typeof MetasRoute
   OrcamentosRoute: typeof OrcamentosRoute
   RecorrenciasRoute: typeof RecorrenciasRoute
@@ -236,6 +262,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MetasRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/investimentos': {
+      id: '/investimentos'
+      path: '/investimentos'
+      fullPath: '/investimentos'
+      preLoaderRoute: typeof InvestimentosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/insights': {
       id: '/insights'
       path: '/insights'
@@ -248,6 +281,13 @@ declare module '@tanstack/react-router' {
       path: '/importacoes'
       fullPath: '/importacoes'
       preLoaderRoute: typeof ImportacoesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/fluxo': {
+      id: '/fluxo'
+      path: '/fluxo'
+      fullPath: '/fluxo'
+      preLoaderRoute: typeof FluxoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/faturas': {
@@ -302,8 +342,10 @@ const rootRouteChildren: RootRouteChildren = {
   CategoriasRoute: CategoriasRoute,
   ConfiguracoesRoute: ConfiguracoesRoute,
   FaturasRoute: FaturasRoute,
+  FluxoRoute: FluxoRoute,
   ImportacoesRoute: ImportacoesRoute,
   InsightsRoute: InsightsRoute,
+  InvestimentosRoute: InvestimentosRoute,
   MetasRoute: MetasRoute,
   OrcamentosRoute: OrcamentosRoute,
   RecorrenciasRoute: RecorrenciasRoute,

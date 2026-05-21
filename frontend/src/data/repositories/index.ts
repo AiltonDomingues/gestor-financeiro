@@ -9,3 +9,5 @@ export { RecurringRepository } from "./recurring.repository";
 export { ImportsRepository } from "./imports.repository";
 export { SettingsRepository } from "./settings.repository";
 export { CategoryRulesRepository } from "./category-rules.repository";
+export { InvestmentsRepository } from "./investments.repository";
+export { InvestmentMovesRepository } from "./investment-moves.repository";

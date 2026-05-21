@@ -18,7 +18,7 @@ export type Card = {
 
 // ── Statement ─────────────────────────────────────────────────────────────────
 
-export type StatementStatus = "importada" | "pendente" | "erro" | "duplicada";
+export type StatementStatus = "importada" | "pendente" | "erro" | "duplicada" | "paga";
 
 export type Statement = {
   id: string;
@@ -102,10 +102,52 @@ export type Goal = {
   status: GoalStatus;
 };
 
+// ── Investment ──────────────────────────────────────────────────────────────────
+
+export type InvestmentType =
+  | "CDB" | "LCI" | "LCA"
+  | "Tesouro Selic" | "Tesouro Prefixado" | "Tesouro IPCA+"
+  | "Acoes" | "FII" | "ETF"
+  | "Cripto" | "Poupanca" | "Fundo" | "Outro";
+
+export type RateIndexer = "CDI" | "Selic" | "IPCA+" | "Prefixado" | "Custom";
+
+export type Investment = {
+  id: string;
+  name: string;
+  institution: string;
+  type: InvestmentType;
+  rateIndexer: RateIndexer;
+  rateValue: number;     // CDI=100 → 100% CDI; IPCA+=5 → IPCA+5%; Prefixado=13.5 → 13.5% a.a.
+  initialAmount: number;
+  quantity?: number;     // shares/cotas/units — for Ações, FII, ETF, Cripto, Fundo
+  startDate: string;     // YYYY-MM-DD
+  maturityDate?: string; // YYYY-MM-DD
+  status: "active" | "redeemed";
+  notes?: string;
+};
+
+export type InvestmentMove = {
+  id: string;
+  investmentId: string;
+  date: string;       // YYYY-MM-DD
+  amount: number;     // always positive
+  type: "aporte" | "resgate";
+  notes?: string;
+};
+
+export type EconomicRates = {
+  selic: number;      // % a.a.
+  cdi: number;        // % a.a.
+  ipca: number;       // % a.a. (last 12 months)
+  updatedAt: string;  // ISO datetime
+};
+
 // ── RecurringEntry ────────────────────────────────────────────────────────────
 
 export type RecurringPeriodicity = "Semanal" | "Quinzenal" | "Mensal" | "Anual";
 export type RecurringType = "despesa" | "receita";
+export type RecurringPaymentMethod = "cartao" | "pix" | "debito_automatico";
 
 export type RecurringEntry = {
   id: string;
@@ -116,6 +158,7 @@ export type RecurringEntry = {
   categoryId: string;
   enabled: boolean;
   type: RecurringType;
+  paymentMethod?: RecurringPaymentMethod; // undefined = pix (affects cash flow directly)
 };
 
 // ── ImportJob ─────────────────────────────────────────────────────────────────
@@ -158,9 +201,11 @@ export type AppSettings = {
   };
   security: {
     pinEnabled: boolean;
+    pinHash: string;       // SHA-256 hex of the 4-digit PIN
     autoLock: boolean;
     autoLockMinutes: number;
   };
+  economicRates: EconomicRates;
 };
 
 // ── Backup ────────────────────────────────────────────────────────────────────

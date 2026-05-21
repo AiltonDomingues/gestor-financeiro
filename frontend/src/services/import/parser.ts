@@ -12,6 +12,8 @@ export type ParsedStatement = {
   dueDate: string;      // ISO date
   total: number;
   items: ParsedStatementItem[];
+  /** Credit / payment entries from "Pagamento e Demais Créditos" sections. */
+  credits: ParsedStatementItem[];
 };
 
 export interface StatementParser {

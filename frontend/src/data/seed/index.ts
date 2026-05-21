@@ -31,8 +31,15 @@ export const defaultSettings: AppSettings = {
   },
   security: {
     pinEnabled: false,
+    pinHash: "",
     autoLock: true,
     autoLockMinutes: 10,
+  },
+  economicRates: {
+    selic: 14.75,
+    cdi: 14.65,
+    ipca: 5.53,
+    updatedAt: "",
   },
 };
 
@@ -49,6 +56,7 @@ export const seedCategories: Category[] = [
   { id: "lazer", name: "Lazer", icon: "🎭", color: "oklch(0.78 0.15 75)", budget: 500 },
   { id: "casa", name: "Casa", icon: "🏠", color: "oklch(0.7 0.12 200)", budget: 800 },
   { id: "educacao", name: "Educação", icon: "📚", color: "oklch(0.72 0.14 230)", budget: 350 },
+  { id: "outros", name: "Outros", icon: "📦", color: "oklch(0.68 0.06 240)" },
 ];
 
 // ── Cards ─────────────────────────────────────────────────────────────────────
@@ -567,13 +575,6 @@ export async function seedDatabaseIfEmpty(): Promise<void> {
 
   await Promise.all([
     db.categories.bulkCreate(seedCategories),
-    db.cards.bulkCreate(seedCards),
-    db.statements.bulkCreate(seedStatements),
-    db.goals.bulkCreate(seedGoals),
-    db.recurring.bulkCreate(seedRecurring),
-    db.imports.bulkCreate(seedImports),
-    db.transactions.bulkCreate(seedTransactions),
-    db.categoryRules.bulkCreate(seedCategoryRules),
     db.settings.save(defaultSettings),
   ]);
 }

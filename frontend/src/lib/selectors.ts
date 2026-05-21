@@ -1,4 +1,4 @@
-import type { Category, Transaction } from "../domain/types";
+import type { Category, CategoryRule, Transaction } from "../domain/types";
 
 // ── Totals ────────────────────────────────────────────────────────────────────
 
@@ -102,12 +102,54 @@ export function computeTopMerchants(
   return [...map.values()].sort((a, b) => b.total - a.total).slice(0, limit);
 }
 
-// ── Filter Current Month ──────────────────────────────────────────────────────
+// ── Filter by Month ───────────────────────────────────────────────────────────
+
+export function filterByMonth(
+  transactions: Transaction[],
+  year: number,
+  month: number, // 0-indexed
+): Transaction[] {
+  return transactions.filter((t) => {
+    const d = new Date(t.date);
+    return d.getFullYear() === year && d.getMonth() === month;
+  });
+}
 
 export function filterCurrentMonth(transactions: Transaction[]): Transaction[] {
   const now = new Date();
-  return transactions.filter((t) => {
-    const d = new Date(t.date);
-    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-  });
+  return filterByMonth(transactions, now.getFullYear(), now.getMonth());
+}
+
+// ── Category Rule Resolver ────────────────────────────────────────────────────
+
+/**
+ * Returns the first matching categoryId from user-defined rules, or null.
+ * Rules are evaluated in ascending priority order. Case-insensitive for all
+ * match types except "regex" (which uses the /i flag).
+ */
+export function resolveCategory(
+  description: string,
+  rules: CategoryRule[],
+): string | null {
+  const enabled = rules
+    .filter((r) => r.enabled)
+    .sort((a, b) => a.priority - b.priority);
+
+  for (const rule of enabled) {
+    let matched = false;
+    try {
+      const hay = description.toLowerCase();
+      const needle = rule.pattern.toLowerCase();
+      switch (rule.matchType) {
+        case "contains":   matched = hay.includes(needle); break;
+        case "startsWith": matched = hay.startsWith(needle); break;
+        case "exact":      matched = hay === needle; break;
+        case "regex":      matched = new RegExp(rule.pattern, "i").test(description); break;
+      }
+    } catch {
+      // invalid regex pattern — skip rule
+    }
+    if (matched) return rule.categoryId;
+  }
+  return null;
 }

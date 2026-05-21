@@ -11,6 +11,8 @@ import {
 import appCss from "../styles.css?url";
 import { AppShell } from "@/components/app-shell";
 import { AppDataProvider } from "@/state/app-data-context";
+import { PeriodProvider } from "@/state/period-context";
+import { PinGate } from "@/components/pin-gate";
 
 function NotFoundComponent() {
   return (
@@ -105,9 +107,13 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AppDataProvider>
-        <AppShell>
-          <Outlet />
-        </AppShell>
+        <PeriodProvider>
+          <PinGate>
+            <AppShell>
+              <Outlet />
+            </AppShell>
+          </PinGate>
+        </PeriodProvider>
       </AppDataProvider>
     </QueryClientProvider>
   );

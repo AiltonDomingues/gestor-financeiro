@@ -1,12 +1,16 @@
 import type { ImportJob, Statement, Transaction } from "../../domain/types";
 import { db } from "../../data/db";
 import { SantanderStatementParser } from "./santander-parser";
+import { autoCategorize } from "./auto-categorize";
+import type { ParsedStatementItem } from "./parser";
 
 const parsers = [new SantanderStatementParser()];
 
 export type ImportStatementOptions = {
   file: File;
   cardId: string;
+  /** Pre-reviewed items with user-confirmed category IDs (from the review step). */
+  reviewedItems?: Array<{ item: ParsedStatementItem; categoryId: string }>;
 };
 
 /**
@@ -22,6 +26,7 @@ export type ImportStatementOptions = {
 export async function importStatement({
   file,
   cardId,
+  reviewedItems,
 }: ImportStatementOptions): Promise<ImportJob> {
   const jobId = crypto.randomUUID();
 
@@ -48,6 +53,14 @@ export async function importStatement({
 
     const parsed = await parser.parse(file);
 
+    // Use reviewed items (user-confirmed categories) if provided, otherwise auto-categorize
+    const itemsToImport = reviewedItems
+      ? reviewedItems
+      : parsed.items.map((item) => ({
+          item,
+          categoryId: autoCategorize(item.description),
+        }));
+
     const statement: Statement = {
       id: crypto.randomUUID(),
       cardId,
@@ -56,18 +69,18 @@ export async function importStatement({
       dueDate: parsed.dueDate,
       total: parsed.total,
       minimum: Math.round(parsed.total * 0.15 * 100) / 100,
-      itemsCount: parsed.items.length,
+      itemsCount: itemsToImport.length,
       status: "pendente",
     };
     await db.statements.create(statement);
 
-    const transactions: Transaction[] = parsed.items.map((item) => ({
+    const transactions: Transaction[] = itemsToImport.map(({ item, categoryId }) => ({
       id: crypto.randomUUID(),
       date: item.date,
       merchant: item.merchant,
       description: item.description,
       amount: item.amount,
-      categoryId: "casa", // default; auto-categorisation is applied separately
+      categoryId,
       cardId,
       statementId: statement.id,
       origin: "fatura" as const,

@@ -10,6 +10,8 @@ import {
   ImportsRepository,
   SettingsRepository,
   CategoryRulesRepository,
+  InvestmentsRepository,
+  InvestmentMovesRepository,
 } from "./repositories";
 
 /**
@@ -30,6 +32,8 @@ export const db = {
   imports: new ImportsRepository(adapter),
   settings: new SettingsRepository(adapter),
   categoryRules: new CategoryRulesRepository(adapter),
+  investments: new InvestmentsRepository(adapter),
+  investmentMoves: new InvestmentMovesRepository(adapter),
   /** Expose the raw adapter for backup clear-all and migration use. */
   adapter,
 };

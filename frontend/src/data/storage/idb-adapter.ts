@@ -1,7 +1,7 @@
 import type { StorageAdapter } from "./adapter";
 
-const DB_NAME = "caderneta_v1";
-const DB_VERSION = 1;
+const DB_NAME = "caderneta_v2";
+const DB_VERSION = 2;
 
 export const STORES = [
   "cards",
@@ -14,6 +14,8 @@ export const STORES = [
   "recurring",
   "imports",
   "settings",
+  "investments",
+  "investment_moves",
 ] as const;
 
 export type StoreName = (typeof STORES)[number];

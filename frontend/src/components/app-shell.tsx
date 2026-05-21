@@ -7,9 +7,11 @@ import {
   Tags,
   Wallet,
   Target,
+  TrendingUp,
   Repeat,
   Sparkles,
   BarChart3,
+  Activity,
   Upload,
   HardDriveDownload,
   Settings,
@@ -19,18 +21,23 @@ import {
   Sun,
   Moon,
   Bell,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppData } from "@/state/app-data-context";
+import { usePeriod, periodLabel } from "@/state/period-context";
+import { useState } from "react";
 
 const nav: { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean }[] = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
+  { to: "/fluxo", label: "Fluxo de Caixa", icon: Activity },
   { to: "/faturas", label: "Faturas", icon: FileText },
   { to: "/transacoes", label: "Transações", icon: Receipt },
   { to: "/cartoes", label: "Cartões", icon: CreditCard },
   { to: "/categorias", label: "Categorias", icon: Tags },
   { to: "/orcamentos", label: "Orçamentos", icon: Wallet },
   { to: "/metas", label: "Metas", icon: Target },
+  { to: "/investimentos", label: "Investimentos", icon: TrendingUp },
   { to: "/recorrencias", label: "Recorrências", icon: Repeat },
   { to: "/insights", label: "Insights", icon: Sparkles },
   { to: "/relatorios", label: "Relatórios", icon: BarChart3 },
@@ -46,10 +53,23 @@ function useTheme() {
   return { theme, setTheme };
 }
 
+function buildMonthOptions() {
+  const now = new Date();
+  const options: { year: number; month: number; label: string }[] = [];
+  for (let i = 11; i >= -1; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    options.push({ year: d.getFullYear(), month: d.getMonth(), label: periodLabel(d.getFullYear(), d.getMonth()) });
+  }
+  return options;
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { theme, setTheme } = useTheme();
   const { settings } = useAppData();
+  const { period, setPeriod, label: periodLabelText } = usePeriod();
+  const [periodOpen, setPeriodOpen] = useState(false);
+  const monthOptions = buildMonthOptions();
   const userName = settings.userName;
   const initials = userName
     .split(" ")
@@ -75,13 +95,40 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
 
           {/* Period selector */}
-          <button className="mx-1 mb-3 glass-soft rounded-xl px-3 py-2.5 text-left text-sm flex items-center justify-between hover:bg-accent/40 transition">
-            <div>
-              <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Período</div>
-              <div className="font-medium">Maio de 2026</div>
-            </div>
-            <svg className="size-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6"/></svg>
-          </button>
+          <div className="mx-1 mb-3 relative">
+            <button
+              onClick={() => setPeriodOpen((v) => !v)}
+              className="w-full glass-soft rounded-xl px-3 py-2.5 text-left text-sm flex items-center justify-between hover:bg-accent/40 transition"
+            >
+              <div>
+                <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Período</div>
+                <div className="font-medium">{periodLabelText}</div>
+              </div>
+              <ChevronDown className={cn("size-4 text-muted-foreground transition-transform", periodOpen && "rotate-180")} />
+            </button>
+            {periodOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setPeriodOpen(false)} />
+                <div className="absolute left-0 right-0 z-20 mt-1 glass rounded-xl shadow-xl py-1 max-h-64 overflow-y-auto text-[13px]">
+                  {monthOptions.map((opt) => {
+                    const active = opt.year === period.year && opt.month === period.month;
+                    return (
+                      <button
+                        key={`${opt.year}-${opt.month}`}
+                        onClick={() => { setPeriod({ year: opt.year, month: opt.month }); setPeriodOpen(false); }}
+                        className={cn(
+                          "w-full text-left px-3 py-2 hover:bg-accent/40 transition",
+                          active ? "text-primary font-medium" : "text-foreground",
+                        )}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
 
           {/* Nav */}
           <nav className="flex-1 overflow-y-auto pr-0.5 -mr-0.5 flex flex-col gap-0.5">
@@ -147,7 +194,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               >
                 {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
               </button>
-              <button className="size-9 rounded-xl hover:bg-accent/40 grid place-items-center text-muted-foreground hover:text-foreground transition relative">
+              <button title="Notificações" className="size-9 rounded-xl hover:bg-accent/40 grid place-items-center text-muted-foreground hover:text-foreground transition relative">
                 <Bell className="size-4" />
                 <span className="absolute top-2 right-2 size-1.5 rounded-full bg-primary" />
               </button>

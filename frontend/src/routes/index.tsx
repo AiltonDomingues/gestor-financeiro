@@ -21,6 +21,8 @@ import {
   TrendingUp,
   AlertTriangle,
   CheckCircle2,
+  Target,
+  CreditCard,
 } from "lucide-react";
 import { GlassCard, PageHeader } from "@/components/app-shell";
 import { Pill, SectionTitle } from "@/components/ui-bits";
@@ -30,9 +32,10 @@ import {
   computeCategorySpend,
   computeMonthlyTrend,
   computeTopMerchants,
-  filterCurrentMonth,
+  filterByMonth,
 } from "@/lib/selectors";
 import { brl, dateBR } from "@/lib/format";
+import { usePeriod } from "@/state/period-context";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -45,8 +48,12 @@ export const Route = createFileRoute("/")({
 });
 
 function Dashboard() {
-  const { transactions, categories, goals, recurring } = useAppData();
-  const currentMonth = useMemo(() => filterCurrentMonth(transactions), [transactions]);
+  const { transactions, categories, goals, cards, recurring } = useAppData();
+  const { period } = usePeriod();
+  const currentMonth = useMemo(
+    () => filterByMonth(transactions, period.year, period.month),
+    [transactions, period.year, period.month],
+  );
   const totals = useMemo(() => computeTotals(currentMonth), [currentMonth]);
   const categorySpend = useMemo(
     () => computeCategorySpend(currentMonth, categories),
@@ -58,6 +65,30 @@ function Dashboard() {
   const net = totals.income - totals.expenses;
   const recent = currentMonth.slice(0, 6);
   const topCats = categorySpend.slice(0, 5);
+
+  type InsightItem = { icon: typeof Sparkles; tone: "warning" | "info" | "negative" | "positive"; text: string };
+  const insights = useMemo<InsightItem[]>(() => {
+    const list: InsightItem[] = [];
+    const overBudget = categorySpend.find((c) => c.budget && c.spent > c.budget * 0.8);
+    if (overBudget) {
+      const pct = Math.round((overBudget.spent / (overBudget.budget ?? 1)) * 100);
+      list.push({ icon: AlertTriangle, tone: "warning", text: `${overBudget.name} usou ${pct}% do orçamento este mês.` });
+    }
+    const closeGoal = goals.find((g) => g.status === "active" && g.current / g.target >= 0.7);
+    if (closeGoal) {
+      const pct = Math.round((closeGoal.current / closeGoal.target) * 100);
+      list.push({ icon: Target, tone: "positive", text: `Meta "${closeGoal.name}" está em ${pct}% — faltam ${brl(closeGoal.target - closeGoal.current)}.` });
+    }
+    const nearLimit = cards.find((c) => c.limit > 0 && c.used / c.limit >= 0.8);
+    if (nearLimit) {
+      const pct = Math.round((nearLimit.used / nearLimit.limit) * 100);
+      list.push({ icon: CreditCard, tone: "negative", text: `${nearLimit.name} usou ${pct}% do limite disponível.` });
+    }
+    if (categorySpend[0]) {
+      list.push({ icon: Sparkles, tone: "info", text: `Maior gasto do mês: ${categorySpend[0].name} com ${brl(categorySpend[0].spent)}.` });
+    }
+    return list;
+  }, [categorySpend, goals, cards]);
 
   return (
     <div className="space-y-6">
@@ -144,12 +175,9 @@ function Dashboard() {
         <GlassCard>
           <SectionTitle title="Insights" hint="Padrões detectados no período" />
           <div className="space-y-3">
-            {[
-              { icon: TrendingUp, tone: "warning" as const, text: "Seus gastos com alimentação subiram 18% neste mês." },
-              { icon: Sparkles, tone: "info" as const, text: "Você gastou mais com transporte às sextas-feiras." },
-              { icon: AlertTriangle, tone: "negative" as const, text: "Cartão Santander Unique já usou 84% do limite." },
-              { icon: CheckCircle2, tone: "positive" as const, text: "Meta MacBook Pro está em 79% — falta R$ 3.800." },
-            ].map((i, idx) => {
+            {insights.length === 0 ? (
+              <p className="text-[13px] text-muted-foreground text-center py-4">Adicione transações para ver seus insights.</p>
+            ) : insights.map((i, idx) => {
               const Icon = i.icon;
               return (
                 <div key={idx} className="glass-soft rounded-xl p-3 flex items-start gap-3">

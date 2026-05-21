@@ -10,8 +10,11 @@ import type {
   AppSettings,
   Card,
   Category,
+  CategoryRule,
   Goal,
   ImportJob,
+  Investment,
+  InvestmentMove,
   RecurringEntry,
   Statement,
   Transaction,
@@ -52,6 +55,12 @@ type AppDataContextValue = {
   updateCategory: (id: string, patch: Partial<Category>) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
 
+  // Category Rules
+  categoryRules: CategoryRule[];
+  addCategoryRule: (r: Omit<CategoryRule, "id">) => Promise<CategoryRule>;
+  updateCategoryRule: (id: string, patch: Partial<CategoryRule>) => Promise<void>;
+  deleteCategoryRule: (id: string) => Promise<void>;
+
   // Goals
   addGoal: (g: Omit<Goal, "id">) => Promise<Goal>;
   updateGoal: (id: string, patch: Partial<Goal>) => Promise<void>;
@@ -65,6 +74,17 @@ type AppDataContextValue = {
   // Import jobs
   addImportJob: (j: Omit<ImportJob, "id">) => Promise<ImportJob>;
   updateImportJob: (id: string, patch: Partial<ImportJob>) => Promise<void>;
+
+  // Investments
+  investments: Investment[];
+  addInvestment: (inv: Omit<Investment, "id">) => Promise<Investment>;
+  updateInvestment: (id: string, patch: Partial<Investment>) => Promise<void>;
+  deleteInvestment: (id: string) => Promise<void>;
+
+  // Investment moves
+  investmentMoves: InvestmentMove[];
+  addInvestmentMove: (m: Omit<InvestmentMove, "id">) => Promise<InvestmentMove>;
+  deleteInvestmentMove: (id: string) => Promise<void>;
 
   // Settings
   updateSettings: (patch: Partial<AppSettings>) => Promise<void>;
@@ -107,6 +127,12 @@ const DEFAULT_SETTINGS: AppSettings = {
     autoLock: true,
     autoLockMinutes: 10,
   },
+  economicRates: {
+    selic: 14.75,
+    cdi: 14.65,
+    ipca: 5.53,
+    updatedAt: "",
+  },
 };
 
 // ── Provider ──────────────────────────────────────────────────────────────────
@@ -117,10 +143,13 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [cards, setCards] = useState<Card[]>([]);
   const [statements, setStatements] = useState<Statement[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [categoryRules, setCategoryRules] = useState<CategoryRule[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [recurring, setRecurring] = useState<RecurringEntry[]>([]);
   const [imports, setImports] = useState<ImportJob[]>([]);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const [investments, setInvestments] = useState<Investment[]>([]);
+  const [investmentMoves, setInvestmentMoves] = useState<InvestmentMove[]>([]);
 
   const initialized = useRef(false);
 
@@ -131,26 +160,33 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       try {
         await seedDatabaseIfEmpty();
-        const [txs, cds, stmts, cats, gls, rec, imps, s] = await Promise.all([
+        const [txs, cds, stmts, cats, catRules, gls, rec, imps, s, invs, invMoves] = await Promise.all([
           db.transactions.list(),
           db.cards.list(),
           db.statements.list(),
           db.categories.list(),
+          db.categoryRules.list(),
           db.goals.list(),
           db.recurring.list(),
           db.imports.list(),
           db.settings.get(),
+          db.investments.list(),
+          db.investmentMoves.list(),
         ]);
         setTransactions(txs.sort((a, b) => +new Date(b.date) - +new Date(a.date)));
         setCards(cds);
         setStatements(stmts);
         setCategories(cats);
+        setCategoryRules(catRules.sort((a, b) => a.priority - b.priority));
         setGoals(gls);
         setRecurring(rec);
         setImports(imps.sort((a, b) => +new Date(b.date) - +new Date(a.date)));
         const loaded = s ?? DEFAULT_SETTINGS;
-        setSettings(loaded);
+        // Merge so existing settings without economicRates get defaults
+        setSettings({ ...DEFAULT_SETTINGS, ...loaded, economicRates: loaded.economicRates ?? DEFAULT_SETTINGS.economicRates });
         applyTheme(loaded.theme);
+        setInvestments(invs);
+        setInvestmentMoves(invMoves);
       } catch (err) {
         console.error("[AppDataProvider] Failed to initialize:", err);
       } finally {
@@ -249,6 +285,27 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     setCategories((prev) => prev.filter((c) => c.id !== id));
   }, []);
 
+  // ── Category Rules ─────────────────────────────────────────────────────────
+
+  const addCategoryRule = useCallback(async (r: Omit<CategoryRule, "id">): Promise<CategoryRule> => {
+    const entity: CategoryRule = { ...r, id: crypto.randomUUID() };
+    await db.categoryRules.create(entity);
+    setCategoryRules((prev) => [...prev, entity].sort((a, b) => a.priority - b.priority));
+    return entity;
+  }, []);
+
+  const updateCategoryRule = useCallback(async (id: string, patch: Partial<CategoryRule>) => {
+    const updated = await db.categoryRules.update(id, patch);
+    setCategoryRules((prev) =>
+      prev.map((r) => (r.id === id ? updated : r)).sort((a, b) => a.priority - b.priority),
+    );
+  }, []);
+
+  const deleteCategoryRule = useCallback(async (id: string) => {
+    await db.categoryRules.delete(id);
+    setCategoryRules((prev) => prev.filter((r) => r.id !== id));
+  }, []);
+
   // ── Goals ──────────────────────────────────────────────────────────────────
 
   const addGoal = useCallback(async (g: Omit<Goal, "id">): Promise<Goal> => {
@@ -304,11 +361,50 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     setImports((prev) => prev.map((j) => (j.id === id ? updated : j)));
   }, []);
 
+  // ── Investments ────────────────────────────────────────────────────────────
+
+  const addInvestment = useCallback(async (inv: Omit<Investment, "id">): Promise<Investment> => {
+    const entity: Investment = { ...inv, id: crypto.randomUUID() };
+    await db.investments.create(entity);
+    setInvestments((prev) => [...prev, entity]);
+    return entity;
+  }, []);
+
+  const updateInvestment = useCallback(async (id: string, patch: Partial<Investment>) => {
+    const updated = await db.investments.update(id, patch);
+    setInvestments((prev) => prev.map((i) => (i.id === id ? updated : i)));
+  }, []);
+
+  const deleteInvestment = useCallback(async (id: string) => {
+    await db.investments.delete(id);
+    // also remove all associated moves
+    const moves = investmentMoves.filter((m) => m.investmentId === id);
+    await Promise.all(moves.map((m) => db.investmentMoves.delete(m.id)));
+    setInvestments((prev) => prev.filter((i) => i.id !== id));
+    setInvestmentMoves((prev) => prev.filter((m) => m.investmentId !== id));
+  }, [investmentMoves]);
+
+  // ── Investment Moves ───────────────────────────────────────────────────────
+
+  const addInvestmentMove = useCallback(async (m: Omit<InvestmentMove, "id">): Promise<InvestmentMove> => {
+    const entity: InvestmentMove = { ...m, id: crypto.randomUUID() };
+    await db.investmentMoves.create(entity);
+    setInvestmentMoves((prev) => [...prev, entity]);
+    return entity;
+  }, []);
+
+  const deleteInvestmentMove = useCallback(async (id: string) => {
+    await db.investmentMoves.delete(id);
+    setInvestmentMoves((prev) => prev.filter((m) => m.id !== id));
+  }, []);
+
   // ── Settings ───────────────────────────────────────────────────────────────
 
   const updateSettings = useCallback(async (patch: Partial<AppSettings>) => {
-    const updated = await db.settings.patch(patch);
-    setSettings(updated);
+    await db.settings.patch(patch);
+    // Update in-memory state from current value (not from DB read-back, which may
+    // lack fields missing in old IndexedDB records e.g. economicRates)
+    setSettings(prev => ({ ...prev!, ...patch }));
     if (patch.theme) applyTheme(patch.theme);
   }, []);
 
@@ -370,6 +466,10 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     addCategory,
     updateCategory,
     deleteCategory,
+    categoryRules,
+    addCategoryRule,
+    updateCategoryRule,
+    deleteCategoryRule,
     addGoal,
     updateGoal,
     deleteGoal,
@@ -378,6 +478,13 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     deleteRecurring,
     addImportJob,
     updateImportJob,
+    investments,
+    addInvestment,
+    updateInvestment,
+    deleteInvestment,
+    investmentMoves,
+    addInvestmentMove,
+    deleteInvestmentMove,
     updateSettings,
     exportBackup,
     importBackup,
