@@ -16,7 +16,7 @@ import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/relatorios")({
-  head: () => ({ meta: [{ title: "Relatórios — Caderneta" }] }),
+  head: () => ({ meta: [{ title: "Relatórios • GS" }] }),
   component: Relatorios,
 });
 

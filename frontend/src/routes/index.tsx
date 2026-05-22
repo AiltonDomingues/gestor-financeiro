@@ -40,7 +40,7 @@ import { usePeriod } from "@/state/period-context";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Dashboard — Caderneta" },
+      { title: "Dashboard • GS" },
       { name: "description", content: "Visão executiva das suas finanças do mês." },
     ],
   }),
@@ -48,19 +48,49 @@ export const Route = createFileRoute("/")({
 });
 
 function Dashboard() {
-  const { transactions, categories, goals, cards, recurring } = useAppData();
+  const { transactions, categories, goals, cards, recurring, settings } = useAppData();
   const { period } = usePeriod();
+
+  const greeting = (() => {
+    const h = new Date().getHours();
+    if (h < 12) return "Bom dia";
+    if (h < 18) return "Boa tarde";
+    return "Boa noite";
+  })();
+  const name = (settings.userName?.trim() || "você").split(" ")[0];
+
   const currentMonth = useMemo(
     () => filterByMonth(transactions, period.year, period.month),
     [transactions, period.year, period.month],
   );
-  const totals = useMemo(() => computeTotals(currentMonth), [currentMonth]);
+  const totals = useMemo(() => computeTotals(currentMonth, categories), [currentMonth, categories]);
   const categorySpend = useMemo(
     () => computeCategorySpend(currentMonth, categories),
     [currentMonth, categories],
   );
   const monthlyTrend = useMemo(() => computeMonthlyTrend(transactions), [transactions]);
   const topMerchants = useMemo(() => computeTopMerchants(currentMonth), [currentMonth]);
+
+  const prevPeriod = useMemo(() => {
+    const m = period.month === 1 ? 12 : period.month - 1;
+    const y = period.month === 1 ? period.year - 1 : period.year;
+    return { month: m, year: y };
+  }, [period.month, period.year]);
+  const prevMonth = useMemo(
+    () => filterByMonth(transactions, prevPeriod.year, prevPeriod.month),
+    [transactions, prevPeriod],
+  );
+  const prevTotals = useMemo(() => computeTotals(prevMonth, categories), [prevMonth, categories]);
+
+  const formatDelta = (curr: number, prev: number): string | undefined => {
+    if (prev === 0) return undefined;
+    const pct = ((curr - prev) / prev) * 100;
+    const sign = pct >= 0 ? "+" : "";
+    return `${sign}${pct.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
+  };
+  const incomeDelta = formatDelta(totals.income, prevTotals.income);
+  const expensesDelta = formatDelta(totals.expenses, prevTotals.expenses);
+  const activeCards = cards.length;
 
   const net = totals.income - totals.expenses;
   const recent = currentMonth.slice(0, 6);
@@ -93,8 +123,8 @@ function Dashboard() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Boa noite, Ailton"
-        subtitle="Aqui está o resumo do seu mês de Maio de 2026."
+        title={`${greeting}, ${name}`}
+        subtitle={`Aqui está o resumo do seu mês de ${new Date(period.year, period.month - 1).toLocaleString("pt-BR", { month: "long", year: "numeric" })}.`}
         actions={
           <button className="h-9 px-3 rounded-xl text-[13px] font-medium glass hover:bg-accent/40 transition">
             Exportar resumo
@@ -123,9 +153,9 @@ function Dashboard() {
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3 lg:col-span-2">
-            <MiniMetric label="Recebido" value={brl(totals.income)} accent="positive" delta="+3,2%" />
-            <MiniMetric label="Gasto total" value={brl(totals.expenses)} accent="negative" delta="+12,4%" />
-            <MiniMetric label="Cartões" value={brl(totals.cardSpend)} hint="3 cartões ativos" />
+            <MiniMetric label="Recebido" value={brl(totals.income)} accent="positive" delta={incomeDelta} />
+            <MiniMetric label="Gasto total" value={brl(totals.expenses)} accent="negative" delta={expensesDelta} />
+            <MiniMetric label="Cartões" value={brl(totals.cardSpend)} hint={activeCards > 0 ? `${activeCards} ${activeCards === 1 ? "cartão ativo" : "cartões ativos"}` : undefined} />
             <MiniMetric label="Manual" value={brl(totals.manualSpend)} hint="Dinheiro/Pix" />
           </div>
         </div>

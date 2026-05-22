@@ -12,7 +12,7 @@ import { resolveCategory } from "@/lib/selectors";
 import type { Transaction, TransactionOrigin, TransactionStatus } from "@/domain/types";
 
 export const Route = createFileRoute("/transacoes")({
-  head: () => ({ meta: [{ title: "Transações — Caderneta" }] }),
+  head: () => ({ meta: [{ title: "Transações • GS" }] }),
   component: Transacoes,
 });
 
@@ -57,8 +57,8 @@ const emptyForm = (catId = "", cardId = ""): FormState => ({
 
 function formToTransaction(f: FormState): Omit<Transaction, "id"> {
   const raw = parseFloat(f.amount.replace(",", ".")) || 0;
-  // Positive = expense (shown as "−"), negative = income (shown as "+")
-  const amount = f.isExpense ? Math.abs(raw) : -Math.abs(raw);
+  // Domain: negative = expense, positive = income
+  const amount = f.isExpense ? -Math.abs(raw) : Math.abs(raw);
   return {
     date: new Date(f.date + "T12:00:00").toISOString(),
     merchant: f.merchant.trim(),
@@ -75,7 +75,7 @@ function formToTransaction(f: FormState): Omit<Transaction, "id"> {
 
 function transactionToForm(t: Transaction): FormState {
   return {
-    isExpense: t.amount >= 0,
+    isExpense: t.amount < 0,
     date: t.date.slice(0, 10),
     merchant: t.merchant,
     description: t.description,
@@ -258,8 +258,8 @@ function Transacoes() {
   }, [transactions, q, activeChips, filterCard, filterCat, filterOrigin, filterStatus]);
 
   const totalExpenses = list
-    .filter((t) => t.amount > 0)
-    .reduce((s, t) => s + t.amount, 0);
+    .filter((t) => t.amount < 0)
+    .reduce((s, t) => s + Math.abs(t.amount), 0);
 
   // ── Selection ─────────────────────────────────────────────────────────────
   const allSelected = list.length > 0 && selectedIds.length === list.length;
@@ -290,7 +290,8 @@ function Transacoes() {
   // ── Dialog handlers ───────────────────────────────────────────────────────
   function openAdd() {
     catUserPickedRef.current = false;
-    setForm(emptyForm(categories[0]?.id ?? "", cards[0]?.id ?? ""));
+    const defaultCat = categories.find((c) => (c.type ?? "expense") === "expense")?.id ?? categories[0]?.id ?? "";
+    setForm(emptyForm(defaultCat, cards[0]?.id ?? ""));
     setTarget(null);
     setDialog("add");
   }
@@ -372,7 +373,7 @@ function Transacoes() {
         dateBR(t.date), t.merchant, t.description,
         cat?.name ?? "", card ? `${card.name} ${card.last4}` : "",
         t.origin, t.status,
-        (t.amount > 0 ? "-" : "+") + Math.abs(t.amount).toFixed(2).replace(".", ","),
+        (t.amount < 0 ? "-" : "+") + Math.abs(t.amount).toFixed(2).replace(".", ","),
       ].map((v) => `"${v}"`).join(",");
     });
     const csv = [headers.join(","), ...rows].join("\n");
@@ -626,9 +627,9 @@ function Transacoes() {
                         </Pill>
                       </td>
                       <td
-                        className={`px-4 py-3 text-right num font-medium whitespace-nowrap ${t.amount < 0 ? "text-[var(--positive)]" : "text-[var(--negative)]"}`}
+                        className={`px-4 py-3 text-right num font-medium whitespace-nowrap ${t.amount > 0 ? "text-[var(--positive)]" : "text-[var(--negative)]"}`}
                       >
-                        {t.amount < 0 ? "+" : "−"}{brl(Math.abs(t.amount))}
+                        {t.amount > 0 ? "+" : "−"}{brl(Math.abs(t.amount))}
                       </td>
                       <td className="px-2 py-3">
                         <RowMenu
@@ -666,13 +667,21 @@ function Transacoes() {
             <div className="col-span-2 flex rounded-xl overflow-hidden border border-glass-border">
               <button
                 className={`flex-1 py-2 text-[13px] font-medium transition ${form.isExpense ? "bg-[var(--negative)]/15 text-[var(--negative)]" : "hover:bg-accent/20 text-muted-foreground"}`}
-                onClick={() => setForm((f) => ({ ...f, isExpense: true }))}
+                onClick={() => {
+                  const cat = categories.find((c) => (c.type ?? "expense") === "expense")?.id ?? "";
+                  catUserPickedRef.current = false;
+                  setForm((f) => ({ ...f, isExpense: true, categoryId: cat, cardId: cards[0]?.id ?? "" }));
+                }}
               >
                 Despesa
               </button>
               <button
                 className={`flex-1 py-2 text-[13px] font-medium transition ${!form.isExpense ? "bg-[var(--positive)]/15 text-[var(--positive)]" : "hover:bg-accent/20 text-muted-foreground"}`}
-                onClick={() => setForm((f) => ({ ...f, isExpense: false }))}
+                onClick={() => {
+                  const cat = categories.find((c) => c.type === "income")?.id ?? "";
+                  catUserPickedRef.current = false;
+                  setForm((f) => ({ ...f, isExpense: false, categoryId: cat, cardId: "" }));
+                }}
               >
                 Receita
               </button>
@@ -700,10 +709,10 @@ function Transacoes() {
             </Field>
 
             <div className="col-span-2">
-              <Field label="Estabelecimento">
+              <Field label={form.isExpense ? "Estabelecimento" : "Origem / Fonte"}>
                 <input
                   type="text"
-                  placeholder="Ex: iFood"
+                  placeholder={form.isExpense ? "Ex: iFood" : "Ex: Empresa, Cliente"}
                   value={form.merchant}
                   onChange={(e) => {
                     const merchant = e.target.value;
@@ -735,28 +744,34 @@ function Transacoes() {
               <CustomSelect
                 value={form.categoryId}
                 onChange={(v) => { catUserPickedRef.current = true; setForm((f) => ({ ...f, categoryId: v })); }}
-                options={categories.map((c) => ({ value: c.id, label: `${c.icon} ${c.name}` }))}
+                options={categories
+                  .filter((c) => form.isExpense ? (c.type ?? "expense") === "expense" : c.type === "income")
+                  .map((c) => ({ value: c.id, label: `${c.icon} ${c.name}` }))}
               />
             </Field>
-            <Field label="Cartão">
-              <CustomSelect
-                value={form.cardId}
-                onChange={(v) => setForm((f) => ({ ...f, cardId: v }))}
-                options={[{ value: "", label: "Nenhum" }, ...cards.map((c) => ({ value: c.id, label: `${c.name} •${c.last4}` }))]}
-              />
-            </Field>
-            <Field label="Origem">
-              <CustomSelect
-                value={form.origin}
-                onChange={(v) => setForm((f) => ({ ...f, origin: v as TransactionOrigin }))}
-                options={[
-                  { value: "manual", label: "Manual" },
-                  { value: "fatura", label: "Fatura" },
-                  { value: "recorrente", label: "Recorrente" },
-                  { value: "ajuste", label: "Ajuste" },
-                ]}
-              />
-            </Field>
+            {form.isExpense && (
+              <Field label="Cartão">
+                <CustomSelect
+                  value={form.cardId}
+                  onChange={(v) => setForm((f) => ({ ...f, cardId: v }))}
+                  options={[{ value: "", label: "Nenhum" }, ...cards.map((c) => ({ value: c.id, label: `${c.name} •${c.last4}` }))]}
+                />
+              </Field>
+            )}
+            {form.isExpense && (
+              <Field label="Origem">
+                <CustomSelect
+                  value={form.origin}
+                  onChange={(v) => setForm((f) => ({ ...f, origin: v as TransactionOrigin }))}
+                  options={[
+                    { value: "manual", label: "Manual" },
+                    { value: "fatura", label: "Fatura" },
+                    { value: "recorrente", label: "Recorrente" },
+                    { value: "ajuste", label: "Ajuste" },
+                  ]}
+                />
+              </Field>
+            )}
             <Field label="Status">
               <CustomSelect
                 value={form.status}

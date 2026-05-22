@@ -3,13 +3,13 @@ import { Plus, Pencil, Trash2, X, MoreHorizontal } from "lucide-react";
 import { GlassCard, PageHeader } from "@/components/app-shell";
 import { Pill, CustomSelect } from "@/components/ui-bits";
 import { useAppData } from "@/state/app-data-context";
-import { brl, dateBR } from "@/lib/format";
+import { brl, dateBR, toMonthly } from "@/lib/format";
 import { useMemo, useState, useRef } from "react";
 import { createPortal } from "react-dom";
-import type { RecurringEntry, RecurringPeriodicity, RecurringType, RecurringPaymentMethod } from "@/domain/types";
+import type { RecurringEntry, RecurringPeriodicity, RecurringType, RecurringPaymentMethod, RecurringDayRule } from "@/domain/types";
 
 export const Route = createFileRoute("/recorrencias")({
-  head: () => ({ meta: [{ title: "Recorrencias - Caderneta" }] }),
+  head: () => ({ meta: [{ title: "Recorrências • GS" }] }),
   component: Recorrencias,
 });
 
@@ -26,6 +26,8 @@ type FormState = {
   periodicity: RecurringPeriodicity;
   next: string;
   paymentMethod: RecurringPaymentMethod;
+  dayRule: RecurringDayRule;
+  dueDay: string;
 };
 
 const emptyForm = (): FormState => ({
@@ -36,6 +38,8 @@ const emptyForm = (): FormState => ({
   periodicity: "Mensal",
   next: "",
   paymentMethod: "pix",
+  dayRule: "fixed",
+  dueDay: "",
 });
 
 const PAYMENT_METHOD_OPTIONS: { value: RecurringPaymentMethod; label: string; hint: string }[] = [
@@ -51,6 +55,43 @@ const PAYMENT_METHOD_LABEL: Record<RecurringPaymentMethod, string> = {
 };
 
 const PERIODICITY_OPTIONS: RecurringPeriodicity[] = ["Semanal", "Quinzenal", "Mensal", "Anual"];
+
+const DAY_RULE_OPTIONS: { value: RecurringDayRule; label: string }[] = [
+  { value: "fixed",              label: "Dia fixo" },
+  { value: "last_business_day",  label: "Último dia útil do mês" },
+  { value: "prev_business_day",  label: "Dia útil anterior ao dia X" },
+];
+
+function isWeekend(d: Date): boolean {
+  const dow = d.getDay();
+  return dow === 0 || dow === 6;
+}
+
+function prevBusinessDayDate(year: number, month: number, targetDay: number): Date {
+  const d = new Date(year, month, targetDay);
+  while (isWeekend(d)) d.setDate(d.getDate() - 1);
+  return d;
+}
+
+function lastBusinessDayDate(year: number, month: number): Date {
+  const d = new Date(year, month + 1, 0); // last day of month
+  while (isWeekend(d)) d.setDate(d.getDate() - 1);
+  return d;
+}
+
+function computeNextByRule(dayRule: RecurringDayRule, dueDay?: number): string {
+  if (dayRule === "fixed") return "";
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  let d: Date;
+  const tryMonth = (y: number, m: number) =>
+    dayRule === "last_business_day"
+      ? lastBusinessDayDate(y, m)
+      : prevBusinessDayDate(y, m, dueDay ?? 15);
+  d = tryMonth(today.getFullYear(), today.getMonth());
+  if (d < today) d = tryMonth(today.getFullYear(), today.getMonth() + 1);
+  return d.toISOString().slice(0, 10);
+}
 
 const FILTER_LABELS: Record<FilterTab, string> = {
   all: "Todos",
@@ -143,10 +184,10 @@ function Recorrencias() {
 
   const totalDesp = recurring
     .filter((r) => r.type === "despesa" && r.enabled)
-    .reduce((s, r) => s + r.amount, 0);
+    .reduce((s, r) => s + toMonthly(r.amount, r.periodicity), 0);
   const totalRec = recurring
     .filter((r) => r.type === "receita" && r.enabled)
-    .reduce((s, r) => s + r.amount, 0);
+    .reduce((s, r) => s + toMonthly(r.amount, r.periodicity), 0);
   const saldo = totalRec - totalDesp;
 
   // ── Filtered list ─────────────────────────────────────────────────────────
@@ -170,7 +211,8 @@ function Recorrencias() {
   }
 
   function openAdd() {
-    setForm({ ...emptyForm(), next: todayISO(), categoryId: categories[0]?.id ?? "" });
+    const defaultCat = categories.find((c) => (c.type ?? "expense") === "expense")?.id ?? categories[0]?.id ?? "";
+    setForm({ ...emptyForm(), next: todayISO(), categoryId: defaultCat });
     setTarget(null);
     setDialog("add");
   }
@@ -184,6 +226,8 @@ function Recorrencias() {
       periodicity: r.periodicity,
       next: r.next.slice(0, 10),
       paymentMethod: r.paymentMethod ?? "pix",
+      dayRule: r.dayRule ?? "fixed",
+      dueDay: r.dueDay ? String(r.dueDay) : "",
     });
     setTarget(r);
     setDialog("edit");
@@ -203,6 +247,7 @@ function Recorrencias() {
     if (!form.name.trim() || isNaN(amt) || amt <= 0 || !form.next || !form.categoryId) return;
     setSaving(true);
     try {
+      const dueDayNum = form.dueDay ? parseInt(form.dueDay) : undefined;
       const payload = {
         name: form.name.trim(),
         amount: amt,
@@ -212,6 +257,8 @@ function Recorrencias() {
         next: form.next,
         enabled: true,
         paymentMethod: form.type === "despesa" ? form.paymentMethod : undefined,
+        dayRule: form.periodicity === "Mensal" && form.dayRule !== "fixed" ? form.dayRule : undefined,
+        dueDay: form.periodicity === "Mensal" && form.dayRule === "prev_business_day" ? dueDayNum : undefined,
       };
       if (dialog === "add") await addRecurring(payload);
       else if (dialog === "edit" && target) await updateRecurring(target.id, payload);
@@ -228,7 +275,12 @@ function Recorrencias() {
 
   // ── Select options ────────────────────────────────────────────────────────
 
-  const catOptions = categories.map((c) => ({ value: c.id, label: `${c.icon} ${c.name}` }));
+  const catOptions = useMemo(() => {
+    const targetType = form.type === "despesa" ? "expense" : "income";
+    return categories
+      .filter((c) => (c.type ?? "expense") === targetType)
+      .map((c) => ({ value: c.id, label: `${c.icon} ${c.name}` }));
+  }, [categories, form.type]);
   const periodicityOptions = PERIODICITY_OPTIONS.map((p) => ({ value: p, label: p }));
 
   return (
@@ -306,6 +358,12 @@ function Recorrencias() {
                       <span>{cat?.name ?? "—"}</span>
                       <span className="opacity-40">·</span>
                       <span>{r.periodicity}</span>
+                      {r.periodicity === "Mensal" && r.dayRule === "last_business_day" && (
+                        <><span className="opacity-40">·</span><span>últ. dia útil</span></>
+                      )}
+                      {r.periodicity === "Mensal" && r.dayRule === "prev_business_day" && (
+                        <><span className="opacity-40">·</span><span>dia útil antes do {r.dueDay}</span></>
+                      )}
                       <span className="opacity-40">·</span>
                       <span>Prox. {dateBR(r.next)}</span>
                     </div>
@@ -376,7 +434,11 @@ function Recorrencias() {
                   <button
                     key={t}
                     type="button"
-                    onClick={() => setForm((f) => ({ ...f, type: t }))}
+                    onClick={() => {
+                      const targetType = t === "despesa" ? "expense" : "income";
+                      const first = categories.find((c) => (c.type ?? "expense") === targetType)?.id ?? "";
+                      setForm((f) => ({ ...f, type: t, categoryId: first }));
+                    }}
                     className={`h-9 rounded-xl text-[13px] capitalize transition ${
                       form.type === t
                         ? t === "despesa"
@@ -456,7 +518,45 @@ function Recorrencias() {
               />
             </Field>
 
-            <Field label="Proxima cobranca">
+            {/* Business-day rule — only for monthly */}
+            {form.periodicity === "Mensal" && (
+              <Field label="Regra de vencimento">
+                <div className="space-y-2">
+                  <CustomSelect
+                    value={form.dayRule}
+                    onChange={(v) => {
+                      const rule = v as RecurringDayRule;
+                      const computed = rule !== "fixed"
+                        ? computeNextByRule(rule, form.dueDay ? parseInt(form.dueDay) : undefined)
+                        : "";
+                      setForm((f) => ({ ...f, dayRule: rule, next: computed || f.next }));
+                    }}
+                    options={DAY_RULE_OPTIONS}
+                  />
+                  {form.dayRule === "prev_business_day" && (
+                    <input
+                      type="number"
+                      min={1}
+                      max={31}
+                      placeholder="Dia alvo (ex: 15)"
+                      value={form.dueDay}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const computed = val ? computeNextByRule("prev_business_day", parseInt(val)) : "";
+                        setForm((f) => ({ ...f, dueDay: val, next: computed || f.next }));
+                      }}
+                      className={inputCls}
+                    />
+                  )}
+                </div>
+              </Field>
+            )}
+
+            <Field label={
+              form.type === "receita"
+                ? form.dayRule !== "fixed" ? "Próximo recebimento (calculado)" : "Próximo recebimento"
+                : form.dayRule !== "fixed" ? "Próxima cobrança (calculada)" : "Proxima cobranca"
+            }>
               <input
                 type="date"
                 title="Proxima data de cobranca"

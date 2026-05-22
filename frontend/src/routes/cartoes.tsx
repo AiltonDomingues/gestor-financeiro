@@ -8,7 +8,7 @@ import { useState } from "react";
 import type { Card, CardBrand } from "@/domain/types";
 
 export const Route = createFileRoute("/cartoes")({
-  head: () => ({ meta: [{ title: "Cartões — Caderneta" }] }),
+  head: () => ({ meta: [{ title: "Cartões • GS" }] }),
   component: Cartoes,
 });
 

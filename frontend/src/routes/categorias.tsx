@@ -8,11 +8,11 @@ import { useAppData } from "@/state/app-data-context";
 import { usePeriod } from "@/state/period-context";
 import { computeCategorySpend, filterByMonth } from "@/lib/selectors";
 import { brl, pct } from "@/lib/format";
-import type { CategoryRuleMatchType } from "@/domain/types";
+import type { CategoryRuleMatchType, CategoryType } from "@/domain/types";
 import { useMemo, useState } from "react";
 
 export const Route = createFileRoute("/categorias")({
-  head: () => ({ meta: [{ title: "Categorias — Caderneta" }] }),
+  head: () => ({ meta: [{ title: "Categorias • GS" }] }),
   component: Categorias,
 });
 
@@ -40,7 +40,7 @@ type DialogMode =
   | "add-rule" | "edit-rule" | "delete-rule"
   | null;
 
-type CatForm = { name: string; icon: string; color: string; budget: string };
+type CatForm = { name: string; icon: string; color: string; budget: string; type: CategoryType; restricted: boolean };
 type RuleForm = {
   pattern: string;
   matchType: CategoryRuleMatchType;
@@ -49,7 +49,7 @@ type RuleForm = {
   enabled: boolean;
 };
 
-const EMPTY_CAT: CatForm = { name: "", icon: "🏷️", color: "#6366f1", budget: "" };
+const EMPTY_CAT: CatForm = { name: "", icon: "🏷️", color: "#6366f1", budget: "", type: "expense", restricted: false };
 const EMPTY_RULE: RuleForm = {
   pattern: "", matchType: "contains",
   categoryId: "", priority: "10", enabled: true,
@@ -86,7 +86,12 @@ function Categorias() {
   function openEditCat(id: string) {
     const c = categories.find((x) => x.id === id);
     if (!c) return;
-    setCatForm({ name: c.name, icon: c.icon, color: c.color, budget: c.budget ? String(c.budget) : "" });
+    setCatForm({
+      name: c.name, icon: c.icon, color: c.color,
+      budget: c.budget ? String(c.budget) : "",
+      type: c.type ?? "expense",
+      restricted: c.restricted ?? false,
+    });
     setTargetId(id);
     setDialog("edit-cat");
     setOpenMenu("");
@@ -116,6 +121,8 @@ function Categorias() {
     try {
       const payload = {
         name: catForm.name.trim(), icon: catForm.icon, color: catForm.color,
+        type: catForm.type,
+        ...(catForm.restricted && catForm.type === "income" ? { restricted: true } : { restricted: undefined }),
         ...(catForm.budget ? { budget: parseFloat(catForm.budget) } : {}),
       };
       if (dialog === "add-cat") await addCategory(payload);
@@ -204,7 +211,18 @@ function Categorias() {
                     {c.icon}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-[14px] font-medium">{c.name}</div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[14px] font-medium">{c.name}</span>
+                      {(c.type ?? "expense") === "income" ? (
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400">
+                          {c.restricted ? "Benefício" : "Receita"}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-[var(--negative)]/10 text-[var(--negative)]">
+                          Despesa
+                        </span>
+                      )}
+                    </div>
                     <div className="text-[11.5px] text-muted-foreground">
                       {c.count} transações{total > 0 ? ` · ${pct(c.spent / total, 1)} do total` : ""}
                     </div>
@@ -321,6 +339,26 @@ function Categorias() {
 
       {(dialog === "add-cat" || dialog === "edit-cat") && (
         <Modal title={dialog === "add-cat" ? "Nova categoria" : "Editar categoria"} onClose={closeDialog}>
+          <Field label="Tipo">
+            <div className="flex rounded-xl glass-soft p-1 gap-1">
+              {(["expense", "income"] as CategoryType[]).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setCatForm((f) => ({ ...f, type: t, restricted: false }))}
+                  className={`flex-1 h-8 rounded-lg text-[13px] font-medium transition ${
+                    catForm.type === t
+                      ? t === "expense"
+                        ? "bg-[var(--negative)]/20 text-[var(--negative)]"
+                        : "bg-emerald-500/20 text-emerald-400"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {t === "expense" ? "Despesa" : "Receita"}
+                </button>
+              ))}
+            </div>
+          </Field>
           <Field label="Nome">
             <input
               autoFocus
@@ -384,6 +422,22 @@ function Categorias() {
               className="w-full bg-transparent border border-glass-border rounded-lg px-3 py-2 text-[13px] outline-none focus:border-primary/60 num"
             />
           </Field>
+          {catForm.type === "income" && (
+            <label className="flex items-center gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={catForm.restricted}
+                onChange={(e) => setCatForm((f) => ({ ...f, restricted: e.target.checked }))}
+                className="size-4 rounded accent-emerald-500"
+              />
+              <div>
+                <div className="text-[13px] font-medium">Benefício restrito</div>
+                <div className="text-[11.5px] text-muted-foreground">
+                  Ex: Vale Alimentação / Refeição — não conta como renda livre
+                </div>
+              </div>
+            </label>
+          )}
           <div className="flex justify-end gap-2 pt-2">
             <button onClick={closeDialog} className="h-9 px-4 rounded-xl glass-soft text-[13px] hover:bg-accent/40 transition">Cancelar</button>
             <button

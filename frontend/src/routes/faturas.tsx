@@ -10,7 +10,7 @@ import { brl, dateBR } from "@/lib/format";
 import { useEffect, useMemo, useState } from "react";
 
 export const Route = createFileRoute("/faturas")({
-  head: () => ({ meta: [{ title: "Faturas — Caderneta" }] }),
+  head: () => ({ meta: [{ title: "Faturas • GS" }] }),
   component: Faturas,
 });
 

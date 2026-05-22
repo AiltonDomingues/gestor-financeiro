@@ -11,12 +11,12 @@ import {
 } from "recharts";
 import { useAppData } from "@/state/app-data-context";
 import { computeCategorySpend, computeMonthlyTrend, computeTopMerchants, filterByMonth } from "@/lib/selectors";
-import { brl } from "@/lib/format";
+import { brl, toMonthly } from "@/lib/format";
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/insights")({
-  head: () => ({ meta: [{ title: "Insights — Caderneta" }] }),
+  head: () => ({ meta: [{ title: "Insights • GS" }] }),
   component: Insights,
 });
 
@@ -90,7 +90,7 @@ function Insights() {
   // Recurring
   const enabledRecurring = useMemo(() => recurring.filter((r) => r.enabled), [recurring]);
   const recurringMonthly = useMemo(
-    () => enabledRecurring.filter((r) => r.type === "despesa").reduce((s, r) => s + r.amount, 0),
+    () => enabledRecurring.filter((r) => r.type === "despesa").reduce((s, r) => s + toMonthly(r.amount, r.periodicity), 0),
     [enabledRecurring],
   );
 

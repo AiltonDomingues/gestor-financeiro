@@ -27,3 +27,12 @@ export const monthBR = (d: Date | string) => {
 
 export const pct = (n: number, digits = 0) =>
   `${(n * 100).toFixed(digits).replace(".", ",")}%`;
+
+export function toMonthly(amount: number, periodicity: string): number {
+  switch (periodicity) {
+    case "Semanal":   return amount * (52 / 12);
+    case "Quinzenal": return amount * (26 / 12);
+    case "Anual":     return amount / 12;
+    default:          return amount; // Mensal
+  }
+}

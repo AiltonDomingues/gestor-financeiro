@@ -15,7 +15,7 @@ import { useAppData } from "@/state/app-data-context";
 import { downloadBackupJSON } from "@/services/backup";
 
 export const Route = createFileRoute("/backup")({
-  head: () => ({ meta: [{ title: "Backup e Exportação — Caderneta" }] }),
+  head: () => ({ meta: [{ title: "Backup e Exportação • GS" }] }),
   component: Backup,
 });
 

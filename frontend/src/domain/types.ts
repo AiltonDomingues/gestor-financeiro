@@ -56,12 +56,16 @@ export type Transaction = {
 
 // ── Category ──────────────────────────────────────────────────────────────────
 
+export type CategoryType = "expense" | "income";
+
 export type Category = {
   id: string;
   name: string;
   icon: string;
   color: string;
   budget?: number;  // simple monthly budget limit
+  type: CategoryType;
+  restricted?: boolean;  // benefit income (Vale Alimentação, Vale Refeição) — earmarked, not freely disposable
 };
 
 // ── CategoryRule ──────────────────────────────────────────────────────────────
@@ -148,6 +152,7 @@ export type EconomicRates = {
 export type RecurringPeriodicity = "Semanal" | "Quinzenal" | "Mensal" | "Anual";
 export type RecurringType = "despesa" | "receita";
 export type RecurringPaymentMethod = "cartao" | "pix" | "debito_automatico";
+export type RecurringDayRule = "fixed" | "last_business_day" | "prev_business_day";
 
 export type RecurringEntry = {
   id: string;
@@ -159,6 +164,8 @@ export type RecurringEntry = {
   enabled: boolean;
   type: RecurringType;
   paymentMethod?: RecurringPaymentMethod; // undefined = pix (affects cash flow directly)
+  dayRule?: RecurringDayRule;   // business-day rule (meaningful when periodicity = "Mensal")
+  dueDay?: number;              // target day used with dayRule = "prev_business_day"
 };
 
 // ── ImportJob ─────────────────────────────────────────────────────────────────

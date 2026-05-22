@@ -9,7 +9,7 @@ import { brl } from "@/lib/format";
 import { useMemo, useState } from "react";
 
 export const Route = createFileRoute("/orcamentos")({
-  head: () => ({ meta: [{ title: "Orcamentos - Caderneta" }] }),
+  head: () => ({ meta: [{ title: "Orçamentos • GS" }] }),
   component: Orcamentos,
 });
 

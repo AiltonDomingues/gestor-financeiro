@@ -46,17 +46,25 @@ export const defaultSettings: AppSettings = {
 // ── Categories ────────────────────────────────────────────────────────────────
 
 export const seedCategories: Category[] = [
-  { id: "alimentacao", name: "Alimentação", icon: "🍽️", color: "oklch(0.72 0.16 30)", budget: 1800 },
-  { id: "mercado", name: "Mercado", icon: "🛒", color: "oklch(0.72 0.16 158)", budget: 1500 },
-  { id: "transporte", name: "Transporte", icon: "🚗", color: "oklch(0.72 0.16 255)", budget: 600 },
-  { id: "streaming", name: "Streaming", icon: "🎬", color: "oklch(0.74 0.16 305)", budget: 200 },
-  { id: "farmacia", name: "Farmácia", icon: "💊", color: "oklch(0.7 0.16 15)", budget: 300 },
-  { id: "assinaturas", name: "Assinaturas", icon: "🔁", color: "oklch(0.74 0.14 280)", budget: 250 },
-  { id: "saude", name: "Saúde", icon: "❤️", color: "oklch(0.66 0.2 18)", budget: 400 },
-  { id: "lazer", name: "Lazer", icon: "🎭", color: "oklch(0.78 0.15 75)", budget: 500 },
-  { id: "casa", name: "Casa", icon: "🏠", color: "oklch(0.7 0.12 200)", budget: 800 },
-  { id: "educacao", name: "Educação", icon: "📚", color: "oklch(0.72 0.14 230)", budget: 350 },
-  { id: "outros", name: "Outros", icon: "📦", color: "oklch(0.68 0.06 240)" },
+  // ── Despesas ────────────────────────────────────────────────────────────────
+  { id: "alimentacao", name: "Alimentação", icon: "🍽️", color: "oklch(0.72 0.16 30)", budget: 1800, type: "expense" },
+  { id: "mercado", name: "Mercado", icon: "🛒", color: "oklch(0.72 0.16 158)", budget: 1500, type: "expense" },
+  { id: "transporte", name: "Transporte", icon: "🚗", color: "oklch(0.72 0.16 255)", budget: 600, type: "expense" },
+  { id: "streaming", name: "Streaming", icon: "🎬", color: "oklch(0.74 0.16 305)", budget: 200, type: "expense" },
+  { id: "farmacia", name: "Farmácia", icon: "💊", color: "oklch(0.7 0.16 15)", budget: 300, type: "expense" },
+  { id: "assinaturas", name: "Assinaturas", icon: "🔁", color: "oklch(0.74 0.14 280)", budget: 250, type: "expense" },
+  { id: "saude", name: "Saúde", icon: "❤️", color: "oklch(0.66 0.2 18)", budget: 400, type: "expense" },
+  { id: "lazer", name: "Lazer", icon: "🎭", color: "oklch(0.78 0.15 75)", budget: 500, type: "expense" },
+  { id: "casa", name: "Casa", icon: "🏠", color: "oklch(0.7 0.12 200)", budget: 800, type: "expense" },
+  { id: "educacao", name: "Educação", icon: "📚", color: "oklch(0.72 0.14 230)", budget: 350, type: "expense" },
+  { id: "outros", name: "Outros", icon: "📦", color: "oklch(0.68 0.06 240)", type: "expense" },
+  // ── Receitas ─────────────────────────────────────────────────────────────────
+  { id: "salario", name: "Salário", icon: "💰", color: "oklch(0.72 0.18 158)", type: "income" },
+  { id: "vale-alimentacao", name: "Vale Alimentação", icon: "🛒", color: "oklch(0.72 0.16 100)", type: "income", restricted: true },
+  { id: "vale-refeicao", name: "Vale Refeição", icon: "🥗", color: "oklch(0.72 0.16 120)", type: "income", restricted: true },
+  { id: "freelance", name: "Freelance", icon: "💻", color: "oklch(0.72 0.16 255)", type: "income" },
+  { id: "extra", name: "Extra / Bônus", icon: "⭐", color: "oklch(0.78 0.15 75)", type: "income" },
+  { id: "outros-receita", name: "Outras Receitas", icon: "📥", color: "oklch(0.68 0.06 240)", type: "income" },
 ];
 
 // ── Cards ─────────────────────────────────────────────────────────────────────
@@ -251,7 +259,7 @@ export const seedRecurring: RecurringEntry[] = [
     amount: 14500,
     periodicity: "Mensal",
     next: "2026-06-05",
-    categoryId: "casa",
+    categoryId: "salario",
     enabled: true,
     type: "receita",
   },
@@ -400,7 +408,7 @@ function generateMayTransactions(): Transaction[] {
     merchant: "Salário",
     description: "CRÉDITO SALÁRIO",
     amount: 14500,
-    categoryId: "casa",
+    categoryId: "salario",
     origin: "manual",
     status: "revisada",
   });
@@ -536,7 +544,7 @@ function generateHistoricalTransactions(): Transaction[] {
       merchant: "Salário",
       description: "CRÉDITO SALÁRIO",
       amount: hm.salary,
-      categoryId: "casa",
+      categoryId: "salario",
       origin: "manual",
       status: "revisada",
     });

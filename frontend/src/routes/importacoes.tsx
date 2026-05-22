@@ -14,7 +14,7 @@ import { autoCategorize } from "@/services/import/auto-categorize";
 import type { ParsedStatement, ParsedStatementItem } from "@/services/import/parser";
 
 export const Route = createFileRoute("/importacoes")({
-  head: () => ({ meta: [{ title: "Importações — Caderneta" }] }),
+  head: () => ({ meta: [{ title: "Importações • GS" }] }),
   component: Importacoes,
 });
 

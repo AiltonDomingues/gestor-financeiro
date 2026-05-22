@@ -35,7 +35,7 @@ import {
 import type { Currency, DateFormat } from "@/domain/types";
 
 export const Route = createFileRoute("/configuracoes")({
-  head: () => ({ meta: [{ title: "Configurações — Caderneta" }] }),
+  head: () => ({ meta: [{ title: "Configurações • GS" }] }),
   component: Configuracoes,
 });
 

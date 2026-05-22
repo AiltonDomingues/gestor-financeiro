@@ -226,7 +226,7 @@ function buildCashFlow(
 // ── Route ─────────────────────────────────────────────────────────────────────
 
 export const Route = createFileRoute("/fluxo")({
-  head: () => ({ meta: [{ title: "Fluxo de Caixa — Caderneta" }] }),
+  head: () => ({ meta: [{ title: "Fluxo de Caixa • GS" }] }),
   component: FluxoCaixa,
 });
 
@@ -497,8 +497,8 @@ function FluxoCaixa() {
               Nenhuma fatura ou recorrência nos próximos 60 dias.
             </p>
           ) : (
-            <div className="space-y-0.5 max-h-80 overflow-y-auto pr-1">
-              {upcoming.slice(0, 25).map((item, i) => (
+            <div className="space-y-0.5 max-h-[480px] overflow-y-auto pr-1">
+              {upcoming.map((item, i) => (
                 <div
                   key={i}
                   className="flex items-center gap-3 py-2.5 border-b border-glass-border/40 last:border-0"

@@ -4,15 +4,21 @@ import type { Category, CategoryRule, Transaction } from "../domain/types";
 
 export type Totals = {
   income: number;
+  freeIncome: number;    // income from non-restricted categories (freely disposable)
+  benefits: number;      // income from restricted categories (Vale Alimentação, etc.)
   expenses: number;
   cardSpend: number;
   manualSpend: number;
 };
 
-export function computeTotals(transactions: Transaction[]): Totals {
-  const income = transactions
-    .filter((t) => t.amount > 0)
+export function computeTotals(transactions: Transaction[], categories: Category[] = []): Totals {
+  const restrictedIds = new Set(categories.filter((c) => c.restricted).map((c) => c.id));
+  const incomeTxs = transactions.filter((t) => t.amount > 0);
+  const income = incomeTxs.reduce((s, t) => s + t.amount, 0);
+  const benefits = incomeTxs
+    .filter((t) => restrictedIds.has(t.categoryId))
     .reduce((s, t) => s + t.amount, 0);
+  const freeIncome = income - benefits;
   const expenses = Math.abs(
     transactions.filter((t) => t.amount < 0).reduce((s, t) => s + t.amount, 0),
   );
@@ -26,7 +32,7 @@ export function computeTotals(transactions: Transaction[]): Totals {
       .filter((t) => t.amount < 0 && !t.cardId)
       .reduce((s, t) => s + t.amount, 0),
   );
-  return { income, expenses, cardSpend, manualSpend };
+  return { income, freeIncome, benefits, expenses, cardSpend, manualSpend };
 }
 
 // ── Category Spend ────────────────────────────────────────────────────────────

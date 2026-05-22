@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   Plus, TrendingUp, TrendingDown, Landmark, LineChart as LineIcon,
   Coins, Building2, PiggyBank, X, MoreHorizontal, Pencil, Trash2, Activity,
+  ArrowDownLeft, ArrowUpLeft,
 } from "lucide-react";
 import { GlassCard, PageHeader } from "@/components/app-shell";
 import { Pill, SectionTitle, Stat, CustomSelect } from "@/components/ui-bits";
@@ -9,7 +10,7 @@ import { brl, dateBR } from "@/lib/format";
 import { useAppData } from "@/state/app-data-context";
 import { useMemo, useState, useRef } from "react";
 import { createPortal } from "react-dom";
-import type { Investment, InvestmentType, RateIndexer, EconomicRates, InvestmentMove } from "@/domain/types";
+import type { Investment, InvestmentType, RateIndexer, EconomicRates, InvestmentMove, Category } from "@/domain/types";
 import { cn } from "@/lib/utils";
 import {
   ResponsiveContainer,
@@ -28,7 +29,7 @@ import {
 export const Route = createFileRoute("/investimentos")({
   head: () => ({
     meta: [
-      { title: "Investimentos — Caderneta" },
+      { title: "Investimentos • GS" },
       { name: "description", content: "Carteira de investimentos consolidada: renda fixa, ações, fundos e cripto." },
     ],
   }),
@@ -663,11 +664,13 @@ function InvMenu({
   status,
   onEdit,
   onRedeem,
+  onMove,
   onDelete,
 }: {
   status: "active" | "redeemed";
   onEdit: () => void;
   onRedeem: () => void;
+  onMove: () => void;
   onDelete: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -707,6 +710,14 @@ function InvMenu({
             </button>
             {status === "active" && (
               <button
+                onClick={() => { onMove(); setOpen(false); }}
+                className="w-full text-left px-3 py-2 hover:bg-accent/40 flex items-center gap-2 transition"
+              >
+                <ArrowDownLeft className="size-3.5" /> Aporte / Resgate
+              </button>
+            )}
+            {status === "active" && (
+              <button
                 onClick={() => { onRedeem(); setOpen(false); }}
                 className="w-full text-left px-3 py-2 hover:bg-accent/40 flex items-center gap-2 transition"
               >
@@ -727,21 +738,184 @@ function InvMenu({
   );
 }
 
+// ── Move Modal ────────────────────────────────────────────────────────────────
+
+function MoveModal({
+  investment,
+  categories,
+  onSave,
+  onClose,
+}: {
+  investment: Investment;
+  categories: Category[];
+  onSave: (move: Omit<InvestmentMove, "id">, txCategoryId: string | null) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [type, setType] = useState<"aporte" | "resgate">("aporte");
+  const [amount, setAmount] = useState("");
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [notes, setNotes] = useState("");
+  const [syncToTx, setSyncToTx] = useState(true);
+  const [categoryId, setCategoryId] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const txCategories = categories.filter((c) =>
+    type === "aporte" ? c.type === "expense" : c.type === "income",
+  );
+
+  const valid = parseFloat(amount.replace(",", ".")) > 0 && !!date;
+
+  async function handleSave() {
+    if (!valid) return;
+    setSaving(true);
+    try {
+      await onSave(
+        {
+          investmentId: investment.id,
+          type,
+          amount: parseFloat(amount.replace(",", ".")),
+          date,
+          notes: notes.trim() || undefined,
+        },
+        syncToTx ? (categoryId || "") : null,
+      );
+      onClose();
+    } finally { setSaving(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="glass rounded-2xl w-full max-w-sm p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-[15px] font-semibold">Aporte / Resgate</h2>
+            <p className="text-[12px] text-muted-foreground mt-0.5 truncate max-w-[220px]">{investment.name}</p>
+          </div>
+          <button onClick={onClose} className="size-8 rounded-xl glass-soft hover:bg-accent/40 grid place-items-center transition">
+            <X className="size-4" />
+          </button>
+        </div>
+
+        {/* Type toggle */}
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => setType("aporte")}
+            className={cn(
+              "h-9 rounded-xl text-[13px] flex items-center justify-center gap-1.5 transition",
+              type === "aporte" ? "bg-[var(--positive)]/20 text-[var(--positive)] ring-1 ring-[var(--positive)]/40" : "glass-soft hover:bg-accent/40",
+            )}
+          >
+            <ArrowUpLeft className="size-4" /> Aporte
+          </button>
+          <button
+            onClick={() => setType("resgate")}
+            className={cn(
+              "h-9 rounded-xl text-[13px] flex items-center justify-center gap-1.5 transition",
+              type === "resgate" ? "bg-[var(--negative)]/20 text-[var(--negative)] ring-1 ring-[var(--negative)]/40" : "glass-soft hover:bg-accent/40",
+            )}
+          >
+            <ArrowDownLeft className="size-4" /> Resgate
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          <Field label="Valor (R$)">
+            <input
+              type="number" step="0.01" min="0"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="0,00"
+              className={inputCls}
+              autoFocus
+            />
+          </Field>
+          <Field label="Data">
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className={inputCls}
+            />
+          </Field>
+          <Field label="Observações (opcional)">
+            <input
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Ex: reinvestimento de rendimentos"
+              className={inputCls}
+            />
+          </Field>
+        </div>
+
+        {/* Sync to transactions */}
+        <label className="flex items-center gap-2.5 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={syncToTx}
+            onChange={(e) => setSyncToTx(e.target.checked)}
+            className="size-4 rounded accent-primary"
+          />
+          <span className="text-[13px]">
+            Lançar também em{" "}
+            <span className="font-medium">Transações</span>
+          </span>
+        </label>
+
+        {syncToTx && (
+          <div className="glass-soft rounded-xl p-3 space-y-2.5">
+            <p className="text-[11.5px] text-muted-foreground">
+              {type === "aporte"
+                ? "Cria uma despesa: dinheiro saiu do seu caixa para o investimento."
+                : "Cria uma receita: dinheiro voltou do investimento para o seu caixa."}
+            </p>
+            <Field label="Categoria (opcional)">
+              <CustomSelect
+                value={categoryId}
+                onChange={setCategoryId}
+                options={[
+                  { value: "", label: "Sem categoria" },
+                  ...txCategories.map((c) => ({ value: c.id, label: `${c.icon ?? ""} ${c.name}`.trim() })),
+                ]}
+              />
+            </Field>
+          </div>
+        )}
+
+        <div className="flex gap-2">
+          <button onClick={onClose} className="flex-1 h-9 rounded-xl glass-soft hover:bg-accent/40 text-[13px] transition">
+            Cancelar
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || !valid}
+            className="flex-1 h-9 rounded-xl bg-primary text-primary-foreground text-[13px] disabled:opacity-50 transition"
+          >
+            {saving ? "Salvando…" : "Confirmar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
 function Investimentos() {
   const {
     investments,
     investmentMoves,
+    categories,
     settings,
     addInvestment,
     updateInvestment,
     deleteInvestment,
     updateSettings,
+    addInvestmentMove,
+    addTransaction,
   } = useAppData();
   const rates = settings.economicRates;
 
-  type DialogMode = "add" | "edit" | "rates" | "delete" | null;
+  type DialogMode = "add" | "edit" | "rates" | "delete" | "move" | null;
   const [dialog, setDialog] = useState<DialogMode>(null);
   const [target, setTarget] = useState<Investment | null>(null);
   const [form, setForm] = useState<InvForm>(emptyInvForm());
@@ -751,6 +925,7 @@ function Investimentos() {
   function openAdd() { setForm(emptyInvForm()); setDialog("add"); }
   function openEdit(inv: Investment) { setTarget(inv); setForm(invToForm(inv)); setDialog("edit"); }
   function openDelete(inv: Investment) { setTarget(inv); setDialog("delete"); }
+  function openMove(inv: Investment) { setTarget(inv); setDialog("move"); }
   function close() { setDialog(null); setTarget(null); }
 
   async function handleSaveInvestment(f: InvForm) {
@@ -789,6 +964,21 @@ function Investimentos() {
 
   async function handleRedeem(inv: Investment) {
     await updateInvestment(inv.id, { status: "redeemed" });
+  }
+
+  async function handleSaveMove(move: Omit<InvestmentMove, "id">, txCategoryId: string | null) {
+    await addInvestmentMove(move);
+    if (txCategoryId !== null && target) {
+      await addTransaction({
+        date: move.date,
+        merchant: move.type === "aporte" ? `Aporte: ${target.name}` : `Resgate: ${target.name}`,
+        description: move.notes ?? "",
+        amount: move.type === "aporte" ? -move.amount : move.amount,
+        categoryId: txCategoryId,
+        origin: "ajuste",
+        status: "revisada",
+      });
+    }
   }
 
   async function handleDelete() {
@@ -1100,6 +1290,7 @@ function Investimentos() {
                           status={inv.status}
                           onEdit={() => openEdit(inv)}
                           onRedeem={() => handleRedeem(inv)}
+                          onMove={() => openMove(inv)}
                           onDelete={() => openDelete(inv)}
                         />
                       </td>
@@ -1165,6 +1356,10 @@ function Investimentos() {
       )}
 
       {/* ── Modals ───────────────────────────────────────────────────────────── */}
+
+      {dialog === "move" && target && (
+        <MoveModal investment={target} categories={categories} onSave={handleSaveMove} onClose={close} />
+      )}
 
       {dialog === "rates" && (
         <RatesModal rates={rates} onSave={handleSaveRates} onClose={close} />

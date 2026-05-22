@@ -8,7 +8,7 @@ import { useMemo, useState } from "react";
 import type { Goal, GoalStatus } from "@/domain/types";
 
 export const Route = createFileRoute("/metas")({
-  head: () => ({ meta: [{ title: "Metas - Caderneta" }] }),
+  head: () => ({ meta: [{ title: "Metas • GS" }] }),
   component: Metas,
 });
 
@@ -246,7 +246,7 @@ function GoalMenu({
 // ── Main component ────────────────────────────────────────────────────────────
 
 function Metas() {
-  const { goals, addGoal, updateGoal, deleteGoal } = useAppData();
+  const { goals, addGoal, updateGoal, deleteGoal, transactions, investments, investmentMoves } = useAppData();
 
   const [filterTab, setFilterTab] = useState<FilterTab>("all");
   const [dialog, setDialog] = useState<DialogMode>(null);
@@ -365,6 +365,29 @@ function Metas() {
   const totalTarget = active.reduce((s, g) => s + g.target, 0);
   const totalSaved = active.reduce((s, g) => s + g.current, 0);
 
+  // ── Patrimônio ────────────────────────────────────────────────────────────
+
+  const patrimonio = useMemo(() => {
+    const caixa = transactions.reduce((s, t) => s + t.amount, 0);
+    const investido = investments
+      .filter((inv) => inv.status === "active")
+      .reduce((s, inv) => {
+        const extra = investmentMoves
+          .filter((m) => m.investmentId === inv.id)
+          .reduce((ms, m) => (m.type === "aporte" ? ms + m.amount : ms - m.amount), 0);
+        return s + inv.initialAmount + extra;
+      }, 0);
+    return caixa + investido;
+  }, [transactions, investments, investmentMoves]);
+
+  const totalAlocado = useMemo(
+    () => goals.filter((g) => g.status !== "archived").reduce((s, g) => s + g.current, 0),
+    [goals],
+  );
+
+  const livre = patrimonio - totalAlocado;
+  const pctAlocado = patrimonio > 0 ? Math.min(totalAlocado / patrimonio, 1) : 0;
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -379,6 +402,35 @@ function Metas() {
           </button>
         }
       />
+
+      {/* Patrimônio panel */}
+      <div className="glass rounded-2xl p-5 space-y-3">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Patrimônio total</div>
+            <div className="num text-2xl font-semibold mt-0.5">{brl(patrimonio)}</div>
+            <div className="text-[11.5px] text-muted-foreground mt-0.5">Caixa + investimentos ativos</div>
+          </div>
+          <div className="text-right">
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Livre para distribuir</div>
+            <div className={`num text-xl font-semibold mt-0.5 ${livre >= 0 ? "text-[var(--positive)]" : "text-[var(--negative)]"}`}>
+              {brl(livre)}
+            </div>
+            <div className="text-[11.5px] text-muted-foreground mt-0.5">{brl(totalAlocado)} alocado</div>
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <div className="h-2 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full rounded-full bg-primary transition-all duration-500"
+              style={{ width: `${(pctAlocado * 100).toFixed(1)}%` }}
+            />
+          </div>
+          <div className="text-[11px] text-muted-foreground">
+            {(pctAlocado * 100).toFixed(1)}% do patrimônio alocado em metas
+          </div>
+        </div>
+      </div>
 
       {/* Stats */}
       {active.length > 0 && (
