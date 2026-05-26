@@ -22,7 +22,7 @@ export const defaultSettings: AppSettings = {
   reprocessRulesOnImport: true,
   markPendingForReview: true,
   limitNotifications: true,
-  userName: "Ailton Domingues",
+  userName: "",
   dashboard: {
     showMonthlyTrend: true,
     showTopMerchants: true,

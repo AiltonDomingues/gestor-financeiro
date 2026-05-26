@@ -11,3 +11,4 @@ export { SettingsRepository } from "./settings.repository";
 export { CategoryRulesRepository } from "./category-rules.repository";
 export { InvestmentsRepository } from "./investments.repository";
 export { InvestmentMovesRepository } from "./investment-moves.repository";
+export { HabitualRepository } from "./habitual.repository";

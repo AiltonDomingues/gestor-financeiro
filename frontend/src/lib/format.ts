@@ -12,7 +12,9 @@ export const brlCompact = (n: number) => {
 };
 
 export const dateBR = (d: Date | string) => {
-  const date = typeof d === "string" ? new Date(d) : d;
+  const date = typeof d === "string"
+    ? new Date(d.length === 10 ? d + "T12:00:00" : d)
+    : d;
   return new Intl.DateTimeFormat("pt-BR").format(date);
 };
 

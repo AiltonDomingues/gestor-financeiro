@@ -12,20 +12,20 @@ export async function hashPin(pin: string): Promise<string> {
     .join("");
 }
 
-// ── Session flag (survives re-renders, cleared on tab close) ───────────────────
+// ── Session flag (in-memory only — cleared when the app process exits) ────────
 
-const SESSION_KEY = "caderneta_pin_unlocked";
+let _sessionUnlocked = false;
 
 function isUnlocked() {
-  return sessionStorage.getItem(SESSION_KEY) === "1";
+  return _sessionUnlocked;
 }
 
 function markUnlocked() {
-  sessionStorage.setItem(SESSION_KEY, "1");
+  _sessionUnlocked = true;
 }
 
 function markLocked() {
-  sessionStorage.removeItem(SESSION_KEY);
+  _sessionUnlocked = false;
 }
 
 // ── PinPad UI ─────────────────────────────────────────────────────────────────
@@ -121,13 +121,12 @@ export function PinGate({ children }: { children: React.ReactNode }) {
 
   const [locked, setLocked] = useState(() => pinEnabled && !isUnlocked());
   const [error, setError] = useState("");
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Re-evaluate lock state when pinEnabled changes
   useEffect(() => {
     if (!pinEnabled) {
       setLocked(false);
-      markUnlocked();
     } else if (!isUnlocked()) {
       setLocked(true);
     }

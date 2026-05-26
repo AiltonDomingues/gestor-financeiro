@@ -207,16 +207,18 @@
 @layer components {
   .glass {
     background: var(--color-glass);
-    backdrop-filter: blur(24px) saturate(160%);
     -webkit-backdrop-filter: blur(24px) saturate(160%);
+    backdrop-filter: blur(24px) saturate(160%);
     border: 1px solid var(--color-glass-border);
     box-shadow: var(--shadow-glass);
+    transform: translateZ(0);
   }
   .glass-soft {
     background: color-mix(in oklab, var(--card) 70%, transparent);
-    backdrop-filter: blur(18px) saturate(140%);
     -webkit-backdrop-filter: blur(18px) saturate(140%);
+    backdrop-filter: blur(18px) saturate(140%);
     border: 1px solid var(--color-glass-border);
+    transform: translateZ(0);
   }
   .num {
     font-variant-numeric: tabular-nums;
@@ -232,7 +234,7 @@
 }
 
 /* Scrollbar */
-::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar { width: 4px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: oklch(1 0 0 / 8%); border-radius: 8px; }
 ::-webkit-scrollbar-thumb:hover { background: oklch(1 0 0 / 14%); }
 ::-webkit-scrollbar-track { background: transparent; }

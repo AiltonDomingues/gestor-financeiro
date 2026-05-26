@@ -147,6 +147,18 @@ export type EconomicRates = {
   updatedAt: string;  // ISO datetime
 };
 
+// ── HabitualEntry ─────────────────────────────────────────────────────────────
+
+export type HabitualEntry = {
+  id: string;
+  name: string;
+  emoji: string;
+  estimatedAmount: number;
+  intervalDays: number;     // typical frequency in days
+  categoryId?: string;
+  lastDate: string | null;  // ISO date of last payment, null = never paid
+};
+
 // ── RecurringEntry ────────────────────────────────────────────────────────────
 
 export type RecurringPeriodicity = "Semanal" | "Quinzenal" | "Mensal" | "Anual";

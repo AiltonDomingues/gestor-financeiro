@@ -1,12 +1,13 @@
 ﻿import { createFileRoute } from "@tanstack/react-router";
-import { Plus, Pencil, Trash2, X, MoreHorizontal } from "lucide-react";
+import { Plus, Pencil, Trash2, X, MoreHorizontal, CheckCircle2 } from "lucide-react";
 import { GlassCard, PageHeader } from "@/components/app-shell";
 import { Pill, CustomSelect } from "@/components/ui-bits";
 import { useAppData } from "@/state/app-data-context";
 import { brl, dateBR, toMonthly } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { useMemo, useState, useRef } from "react";
 import { createPortal } from "react-dom";
-import type { RecurringEntry, RecurringPeriodicity, RecurringType, RecurringPaymentMethod, RecurringDayRule } from "@/domain/types";
+import type { RecurringEntry, RecurringPeriodicity, RecurringType, RecurringPaymentMethod, RecurringDayRule, HabitualEntry } from "@/domain/types";
 
 export const Route = createFileRoute("/recorrencias")({
   head: () => ({ meta: [{ title: "Recorrências • GS" }] }),
@@ -16,7 +17,51 @@ export const Route = createFileRoute("/recorrencias")({
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type FilterTab = "all" | "despesa" | "receita" | "disabled";
+type PageTab = "recorrencias" | "habitos";
 type DialogMode = "add" | "edit" | "delete" | null;
+
+type HabitFormState = {
+  name: string;
+  emoji: string;
+  estimatedAmount: string;
+  intervalDays: string;
+  categoryId: string;
+};
+
+const emptyHabitForm = (): HabitFormState => ({
+  name: "",
+  emoji: "",
+  estimatedAmount: "",
+  intervalDays: "30",
+  categoryId: "",
+});
+
+const HABIT_ICONS = [
+  "💊", "✂️", "💈", "🏋️", "🦷", "💆",
+  "🧴", "🐶", "🐱", "🌐", "📱", "📺",
+  "🎮", "🎵", "📚", "☕", "🍕", "🥗",
+  "🚗", "🚌", "🔧", "💡", "💧", "🛒",
+  "👗", "🎁", "🏥", "💳", "🎬", "🏠",
+];
+
+const INTERVAL_OPTIONS = [
+  { value: "7",   label: "Toda semana" },
+  { value: "14",  label: "A cada 2 semanas" },
+  { value: "30",  label: "Todo mês" },
+  { value: "45",  label: "A cada 45 dias" },
+  { value: "60",  label: "A cada 2 meses" },
+  { value: "90",  label: "A cada 3 meses" },
+  { value: "180", label: "A cada 6 meses" },
+  { value: "365", label: "Todo ano" },
+];
+
+function habitStatus(h: HabitualEntry): "never" | "ok" | "warning" | "overdue" {
+  if (!h.lastDate) return "never";
+  const daysSince = Math.floor((Date.now() - new Date(h.lastDate).getTime()) / 86400000);
+  if (daysSince > h.intervalDays) return "overdue";
+  if (daysSince >= h.intervalDays * 0.8) return "warning";
+  return "ok";
+}
 
 type FormState = {
   name: string;
@@ -172,13 +217,22 @@ function RecurringMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () 
 // ── Main component ────────────────────────────────────────────────────────────
 
 function Recorrencias() {
-  const { categories, recurring, addRecurring, updateRecurring, deleteRecurring } = useAppData();
+  const { categories, recurring, addRecurring, updateRecurring, deleteRecurring,
+          habitualEntries, addHabitual, updateHabitual, deleteHabitual } = useAppData();
+
+  const [pageTab, setPageTab] = useState<PageTab>("recorrencias");
 
   const [filterTab, setFilterTab] = useState<FilterTab>("all");
   const [dialog, setDialog] = useState<DialogMode>(null);
   const [target, setTarget] = useState<RecurringEntry | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm());
   const [saving, setSaving] = useState(false);
+
+  // ── Habitual state ────────────────────────────────────────────────────────
+
+  const [habitDialog, setHabitDialog] = useState<"add" | "edit" | "delete" | null>(null);
+  const [habitTarget, setHabitTarget] = useState<HabitualEntry | null>(null);
+  const [habitForm, setHabitForm] = useState<HabitFormState>(emptyHabitForm());
 
   // ── Stats ─────────────────────────────────────────────────────────────────
 
@@ -273,6 +327,60 @@ function Recorrencias() {
     finally { setSaving(false); }
   }
 
+  // ── Habitual CRUD ─────────────────────────────────────────────────────────
+
+  function openAddHabit() {
+    const defaultCat = categories.find((c) => (c.type ?? "expense") === "expense")?.id ?? categories[0]?.id ?? "";
+    setHabitForm({ ...emptyHabitForm(), categoryId: defaultCat });
+    setHabitTarget(null);
+    setHabitDialog("add");
+  }
+
+  function openEditHabit(h: HabitualEntry) {
+    setHabitForm({
+      name: h.name,
+      emoji: h.emoji,
+      estimatedAmount: String(h.estimatedAmount),
+      intervalDays: String(h.intervalDays),
+      categoryId: h.categoryId ?? "",
+    });
+    setHabitTarget(h);
+    setHabitDialog("edit");
+  }
+
+  function closeHabit() { setHabitDialog(null); setHabitTarget(null); }
+
+  async function handleSaveHabit() {
+    const amt = parseFloat(habitForm.estimatedAmount.replace(",", "."));
+    const days = parseInt(habitForm.intervalDays);
+    if (!habitForm.name.trim() || isNaN(days) || days < 1 || !habitForm.categoryId) return;
+    setSaving(true);
+    try {
+      const payload = {
+        name: habitForm.name.trim(),
+        emoji: habitForm.emoji.trim() || "🔄",
+        estimatedAmount: isNaN(amt) ? 0 : amt,
+        intervalDays: days,
+        categoryId: habitForm.categoryId,
+        lastDate: habitDialog === "add" ? null : habitTarget?.lastDate ?? null,
+      };
+      if (habitDialog === "add") await addHabitual(payload);
+      else if (habitDialog === "edit" && habitTarget) await updateHabitual(habitTarget.id, payload);
+      closeHabit();
+    } finally { setSaving(false); }
+  }
+
+  async function handleDeleteHabit() {
+    if (!habitTarget) return;
+    setSaving(true);
+    try { await deleteHabitual(habitTarget.id); closeHabit(); }
+    finally { setSaving(false); }
+  }
+
+  async function markPaid(h: HabitualEntry) {
+    await updateHabitual(h.id, { lastDate: new Date().toISOString().slice(0, 10) });
+  }
+
   // ── Select options ────────────────────────────────────────────────────────
 
   const catOptions = useMemo(() => {
@@ -286,19 +394,44 @@ function Recorrencias() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Recorrencias"
+        title="Recorrências"
         subtitle="Assinaturas, contas fixas e receitas previstas."
         actions={
-          <button
-            onClick={openAdd}
-            className="h-9 px-3 rounded-xl text-[13px] bg-primary text-primary-foreground flex items-center gap-1.5"
-          >
-            <Plus className="size-4" /> Nova recorrencia
-          </button>
+          pageTab === "recorrencias" ? (
+            <button
+              onClick={openAdd}
+              className="h-9 px-3 rounded-xl text-[13px] bg-primary text-primary-foreground flex items-center gap-1.5"
+            >
+              <Plus className="size-4" /> Nova recorrência
+            </button>
+          ) : (
+            <button
+              onClick={openAddHabit}
+              className="h-9 px-3 rounded-xl text-[13px] bg-primary text-primary-foreground flex items-center gap-1.5"
+            >
+              <Plus className="size-4" /> Novo hábito
+            </button>
+          )
         }
       />
 
+      {/* Page tab switcher */}
+      <div className="flex gap-1.5">
+        {(["recorrencias", "habitos"] as PageTab[]).map((t) => (
+          <button
+            key={t}
+            onClick={() => setPageTab(t)}
+            className={`h-8 px-4 rounded-lg text-[12.5px] capitalize transition ${
+              pageTab === t ? "bg-primary text-primary-foreground" : "glass-soft hover:bg-accent/40"
+            }`}
+          >
+            {t === "recorrencias" ? "Recorrências" : "Hábitos"}
+          </button>
+        ))}
+      </div>
+
       {/* Stats */}
+      {pageTab === "recorrencias" && (
       <div className="grid md:grid-cols-3 gap-4">
         <div className="glass rounded-2xl p-4">
           <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Despesas recorrentes</div>
@@ -318,9 +451,10 @@ function Recorrencias() {
           <div className="text-[11px] text-muted-foreground mt-0.5">previsto/mes</div>
         </div>
       </div>
+      )}
 
       {/* Filter tabs */}
-      {recurring.length > 0 && (
+      {pageTab === "recorrencias" && recurring.length > 0 && (
         <div className="flex gap-1.5 flex-wrap">
           {(["all", "despesa", "receita", "disabled"] as FilterTab[]).map((tab) => (
             <button
@@ -338,7 +472,9 @@ function Recorrencias() {
         </div>
       )}
 
-      {/* List */}
+      {/* Recurring List */}
+      {pageTab === "recorrencias" && (
+        <>
       {filtered.length > 0 ? (
         <GlassCard className="p-0 overflow-hidden">
           <div className="divide-y divide-glass-border">
@@ -406,6 +542,116 @@ function Recorrencias() {
               : "Nenhuma recorrencia nesta categoria."}
           </p>
         </GlassCard>
+      )}
+        </>
+      )}
+
+      {/* Hábitos Stats */}
+      {pageTab === "habitos" && habitualEntries.length > 0 && (() => {
+        const estimativamensal = habitualEntries.reduce(
+          (s, h) => s + (h.estimatedAmount > 0 ? h.estimatedAmount * (30 / h.intervalDays) : 0), 0
+        );
+        const atrasados = habitualEntries.filter((h) => habitStatus(h) === "overdue").length;
+        const emDia = habitualEntries.filter((h) => habitStatus(h) === "ok").length;
+        return (
+          <div className="grid grid-cols-3 gap-4">
+            <div className="glass rounded-2xl p-4">
+              <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Estimativa/mês</div>
+              <div className="num text-2xl font-semibold mt-1">{brl(estimativamensal)}</div>
+              <div className="text-[11px] text-muted-foreground mt-0.5">soma normalizada</div>
+            </div>
+            <div className="glass rounded-2xl p-4">
+              <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Atrasados</div>
+              <div className={`num text-2xl font-semibold mt-1 ${atrasados > 0 ? "text-[var(--negative)]" : "text-muted-foreground"}`}>
+                {atrasados}
+              </div>
+              <div className="text-[11px] text-muted-foreground mt-0.5">passaram do prazo</div>
+            </div>
+            <div className="glass rounded-2xl p-4">
+              <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Em dia</div>
+              <div className={`num text-2xl font-semibold mt-1 ${emDia > 0 ? "text-[var(--positive)]" : "text-muted-foreground"}`}>
+                {emDia}
+              </div>
+              <div className="text-[11px] text-muted-foreground mt-0.5">dentro do intervalo</div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Hábitos List */}
+      {pageTab === "habitos" && (
+        <>
+          {habitualEntries.length > 0 ? (
+            <GlassCard className="p-0 overflow-hidden">
+              <div className="divide-y divide-glass-border">
+                {habitualEntries.map((h) => {
+                  const cat = categories.find((c) => c.id === h.categoryId);
+                  const status = habitStatus(h);
+                  const daysSince = h.lastDate
+                    ? Math.floor((Date.now() - new Date(h.lastDate).getTime()) / 86400000)
+                    : null;
+                  return (
+                    <div key={h.id} className="flex items-center gap-3 px-5 py-3.5 hover:bg-accent/10 transition">
+                      <div className="size-10 rounded-xl glass-soft grid place-items-center text-lg shrink-0">
+                        {h.emoji || "🔄"}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[14px] font-medium truncate">{h.name}</div>
+                        <div className="text-[11.5px] text-muted-foreground flex items-center gap-1.5 flex-wrap mt-0.5">
+                          <span>{cat?.name ?? "—"}</span>
+                          <span className="opacity-40">·</span>
+                          <span>a cada {h.intervalDays}d</span>
+                          <span className="opacity-40">·</span>
+                          <span>
+                            {daysSince === null
+                              ? "nunca pago"
+                              : daysSince === 0
+                              ? "pago hoje"
+                              : `há ${daysSince}d`}
+                          </span>
+                        </div>
+                      </div>
+                      {status === "never" && (
+                        <span className="text-[11px] px-2 py-0.5 rounded-full glass-soft text-muted-foreground">sem registro</span>
+                      )}
+                      {status === "ok" && (
+                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-[var(--positive)]/15 text-[var(--positive)]">em dia</span>
+                      )}
+                      {status === "warning" && (
+                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-yellow-500/15 text-yellow-500">atenção</span>
+                      )}
+                      {status === "overdue" && (
+                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-[var(--negative)]/15 text-[var(--negative)]">atrasado</span>
+                      )}
+                      {h.estimatedAmount > 0 && (
+                        <div className="num text-[14px] font-semibold text-muted-foreground w-24 text-right shrink-0">
+                          ~{brl(h.estimatedAmount)}
+                        </div>
+                      )}
+                      <button
+                        title="Marcar como pago hoje"
+                        onClick={() => markPaid(h)}
+                        className="size-8 rounded-lg hover:bg-[var(--positive)]/20 grid place-items-center transition shrink-0"
+                      >
+                        <CheckCircle2 className="size-4 text-muted-foreground hover:text-[var(--positive)]" />
+                      </button>
+                      <RecurringMenu
+                        onEdit={() => openEditHabit(h)}
+                        onDelete={() => { setHabitTarget(h); setHabitDialog("delete"); }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </GlassCard>
+          ) : (
+            <GlassCard>
+              <p className="text-[13px] text-muted-foreground text-center py-8">
+                Nenhum hábito cadastrado. Clique em Novo hábito para começar.
+              </p>
+            </GlassCard>
+          )}
+        </>
       )}
 
       {/* ── Add / Edit modal ──────────────────────────────────────────────────── */}
@@ -603,6 +849,132 @@ function Recorrencias() {
               </button>
               <button
                 onClick={handleDelete}
+                disabled={saving}
+                className="flex-1 h-10 rounded-xl text-[13px] bg-[var(--negative)] text-white transition disabled:opacity-50"
+              >
+                {saving ? "Excluindo..." : "Excluir"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Habit Add / Edit modal ─────────────────────────────────────────────── */}
+      {(habitDialog === "add" || habitDialog === "edit") && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm"
+          onClick={closeHabit}
+        >
+          <div
+            className="relative w-full sm:max-w-md glass rounded-t-3xl sm:rounded-3xl p-6 space-y-4 max-h-[90dvh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold">
+                {habitDialog === "add" ? "Novo hábito" : "Editar hábito"}
+              </h2>
+              <button title="Fechar" onClick={closeHabit} className="size-7 rounded-full hover:bg-accent/40 grid place-items-center transition">
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <Field label="Nome">
+              <input
+                type="text"
+                placeholder="Ex: Remédio, Corte de cabelo"
+                value={habitForm.name}
+                onChange={(e) => setHabitForm((f) => ({ ...f, name: e.target.value }))}
+                className={inputCls}
+                autoFocus
+              />
+            </Field>
+
+            <Field label="Ícone">
+              <div className="grid grid-cols-10 gap-1">
+                {HABIT_ICONS.map((icon) => (
+                  <button
+                    key={icon}
+                    type="button"
+                    onClick={() => setHabitForm((f) => ({ ...f, emoji: icon }))}
+                    className={cn(
+                      "size-8 rounded-lg text-lg flex items-center justify-center transition",
+                      habitForm.emoji === icon
+                        ? "bg-primary/20 ring-1 ring-primary"
+                        : "glass-soft hover:bg-accent/40",
+                    )}
+                  >
+                    {icon}
+                  </button>
+                ))}
+              </div>
+            </Field>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Valor estimado (R$)">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="0,00"
+                  value={habitForm.estimatedAmount}
+                  onChange={(e) => setHabitForm((f) => ({ ...f, estimatedAmount: e.target.value }))}
+                  className={inputCls}
+                />
+              </Field>
+              <Field label="Frequência típica">
+                <CustomSelect
+                  value={habitForm.intervalDays}
+                  onChange={(v) => setHabitForm((f) => ({ ...f, intervalDays: v }))}
+                  options={INTERVAL_OPTIONS}
+                />
+              </Field>
+            </div>
+
+            <Field label="Categoria">
+              <CustomSelect
+                value={habitForm.categoryId}
+                onChange={(v) => setHabitForm((f) => ({ ...f, categoryId: v }))}
+                options={categories.map((c) => ({ value: c.id, label: `${c.icon} ${c.name}` }))}
+              />
+            </Field>
+
+            <div className="flex gap-2 pt-1">
+              <button onClick={closeHabit} className="flex-1 h-10 rounded-xl text-[13px] glass-soft hover:bg-accent/40 transition">
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveHabit}
+                disabled={saving || !habitForm.name.trim()}
+                className="flex-1 h-10 rounded-xl text-[13px] bg-primary text-primary-foreground transition disabled:opacity-50"
+              >
+                {saving ? "Salvando..." : "Salvar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Habit Delete modal ────────────────────────────────────────────────── */}
+      {habitDialog === "delete" && habitTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm"
+          onClick={closeHabit}
+        >
+          <div
+            className="relative w-full sm:max-w-sm glass rounded-t-3xl sm:rounded-3xl p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-base font-semibold">Excluir hábito</h2>
+            <p className="text-[13px] text-muted-foreground">
+              Tem a certeza que quer excluir{" "}
+              <span className="font-medium text-foreground">{habitTarget.name}</span>? Esta ação não pode ser desfeita.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={closeHabit} className="flex-1 h-10 rounded-xl text-[13px] glass-soft hover:bg-accent/40 transition">
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeleteHabit}
                 disabled={saving}
                 className="flex-1 h-10 rounded-xl text-[13px] bg-[var(--negative)] text-white transition disabled:opacity-50"
               >

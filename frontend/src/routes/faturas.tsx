@@ -168,7 +168,7 @@ function Faturas() {
               {filterOpen && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setFilterOpen(false)} />
-                  <div className="absolute right-0 z-20 mt-1 w-44 glass rounded-xl shadow-xl py-1 text-[13px]">
+                  <div className="absolute right-0 z-20 mt-1 w-44 bg-popover border border-border rounded-xl shadow-xl py-1 text-[13px]">
                     <button
                       onClick={() => { setFilterCard(""); setFilterOpen(false); }}
                       className={`w-full text-left px-3 py-2 hover:bg-accent/40 flex items-center justify-between ${!filterCard ? "text-primary" : ""}`}

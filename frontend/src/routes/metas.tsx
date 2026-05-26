@@ -173,7 +173,7 @@ function DatePickerField({ value, onChange }: { value: string; onChange: (v: str
         <CalendarIcon className="size-4 text-muted-foreground shrink-0" />
       </button>
       {open && (
-        <div className="glass rounded-2xl overflow-hidden shadow-xl">
+        <div className="bg-popover border border-border rounded-2xl overflow-hidden shadow-xl">
           <MiniCalendar value={value} onChange={(v) => { onChange(v); setOpen(false); }} />
         </div>
       )}
@@ -209,7 +209,7 @@ function GoalMenu({
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 z-20 mt-1 w-52 glass rounded-xl shadow-xl py-1 text-[13px]">
+          <div className="absolute right-0 z-20 mt-1 w-52 bg-popover border border-border rounded-xl shadow-xl py-1 text-[13px]">
             <button
               onClick={() => { onEdit(); setOpen(false); }}
               className="w-full text-left px-3 py-2 hover:bg-accent/40 flex items-center gap-2 transition"

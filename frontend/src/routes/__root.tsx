@@ -4,15 +4,13 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
-  HeadContent,
-  Scripts,
 } from "@tanstack/react-router";
 
-import appCss from "../styles.css?url";
 import { AppShell } from "@/components/app-shell";
 import { AppDataProvider } from "@/state/app-data-context";
 import { PeriodProvider } from "@/state/period-context";
 import { PinGate } from "@/components/pin-gate";
+import { OnboardingGate } from "@/components/onboarding-gate";
 
 function NotFoundComponent() {
   return (
@@ -69,41 +67,10 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  head: () => ({
-    meta: [
-      { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Gestor Financeiro • GS" },
-      { name: "description", content: "App local de finanças pessoais com importação de faturas Santander, orçamentos, metas e insights." },
-      { name: "author", content: "Gestor Financeiro" },
-      { property: "og:title", content: "Gestor Financeiro • GS" },
-      { property: "og:description", content: "Controle financeiro premium, 100% local." },
-      { property: "og:type", content: "website" },
-    ],
-    links: [
-      { rel: "stylesheet", href: appCss },
-      { rel: "icon", href: "/GS-logo.PNG", type: "image/png" },
-    ],
-  }),
-  shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
   errorComponent: ErrorComponent,
 });
-
-function RootShell({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="pt-BR" className="dark">
-      <head>
-        <HeadContent />
-      </head>
-      <body>
-        {children}
-        <Scripts />
-      </body>
-    </html>
-  );
-}
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
@@ -111,11 +78,13 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <AppDataProvider>
         <PeriodProvider>
-          <PinGate>
-            <AppShell>
-              <Outlet />
-            </AppShell>
-          </PinGate>
+          <OnboardingGate>
+            <PinGate>
+              <AppShell>
+                <Outlet />
+              </AppShell>
+            </PinGate>
+          </OnboardingGate>
         </PeriodProvider>
       </AppDataProvider>
     </QueryClientProvider>

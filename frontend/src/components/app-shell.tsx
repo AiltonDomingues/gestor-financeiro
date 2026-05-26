@@ -442,7 +442,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {periodOpen && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setPeriodOpen(false)} />
-                <div className="absolute left-0 right-0 z-20 mt-1 glass rounded-xl shadow-xl py-1 max-h-64 overflow-y-auto text-[13px]">
+                <div className="absolute left-0 right-0 z-20 mt-1 bg-popover border border-border rounded-xl shadow-xl py-1 max-h-64 overflow-y-auto text-[13px]">
                   {monthOptions.map((opt) => {
                     const active = opt.year === period.year && opt.month === period.month;
                     return (
@@ -479,9 +479,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       : "text-muted-foreground hover:text-foreground hover:bg-accent/40",
                   )}
                 >
-                  {active && (
-                    <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-r-full bg-primary" />
-                  )}
                   <Icon className={cn("size-4", active ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
                   <span className="font-medium">{item.label}</span>
                 </Link>

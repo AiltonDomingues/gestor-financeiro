@@ -1,4 +1,38 @@
-import type { Category, CategoryRule, Transaction } from "../domain/types";
+import type { Category, CategoryRule, Statement, Transaction } from "../domain/types";
+
+// ── Card Used (computed) ──────────────────────────────────────────────────────
+
+export function computeCardUsed(
+  cardId: string,
+  transactions: Transaction[],
+  statements: Statement[],
+): number {
+  // 1. Balance from unpaid statements
+  const unpaidIds = new Set(
+    statements
+      .filter((s) => s.cardId === cardId && s.status !== "paga")
+      .map((s) => s.id),
+  );
+  const openBalance = transactions
+    .filter((t) => t.cardId === cardId && t.statementId && unpaidIds.has(t.statementId) && t.amount < 0)
+    .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+
+  // 2. Future installments committed but not yet billed
+  const seriesMap = new Map<string, Transaction>();
+  for (const t of transactions.filter(
+    (t) => t.cardId === cardId && t.installment && t.installment.current < t.installment.total,
+  )) {
+    const key = `${t.merchant}|${t.installment!.total}|${Math.round(Math.abs(t.amount) * 100)}`;
+    const existing = seriesMap.get(key);
+    if (!existing || t.installment!.current > existing.installment!.current) seriesMap.set(key, t);
+  }
+  const futureInstallments = Array.from(seriesMap.values()).reduce(
+    (sum, t) => sum + Math.abs(t.amount) * (t.installment!.total - t.installment!.current),
+    0,
+  );
+
+  return openBalance + futureInstallments;
+}
 
 // ── Totals ────────────────────────────────────────────────────────────────────
 

@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
   TrendingDown, TrendingUp, Sparkles, AlertTriangle,
-  Repeat, BarChart3, ChevronLeft, ChevronRight, Wallet,
+  Repeat, BarChart3, ChevronLeft, ChevronRight, Wallet, CreditCard,
 } from "lucide-react";
 import { GlassCard, PageHeader } from "@/components/app-shell";
 import { Pill, SectionTitle, Stat } from "@/components/ui-bits";
@@ -217,6 +217,50 @@ function Insights() {
   const monthLabel    = `${MONTH_NAMES[viewDate.getMonth()]} ${viewDate.getFullYear()}`;
   const isCurrentMonth = monthOffset === 0;
 
+  // Open installments
+  const openInstallments = useMemo(() => {
+    const withInstallment = transactions.filter(
+      (t) => t.installment && t.installment.current < t.installment.total,
+    );
+    const seriesMap = new Map<string, typeof withInstallment[0]>();
+    for (const t of withInstallment) {
+      const key = `${t.merchant}|${t.installment!.total}|${Math.round(Math.abs(t.amount) * 100)}`;
+      const existing = seriesMap.get(key);
+      if (!existing || t.installment!.current > existing.installment!.current) {
+        seriesMap.set(key, t);
+      }
+    }
+    return Array.from(seriesMap.values())
+      .map((t) => {
+        const { current, total } = t.installment!;
+        const remaining = total - current;
+        const amountEach = Math.abs(t.amount);
+        const base = new Date(t.date.length === 10 ? t.date + "T12:00:00" : t.date);
+        const futureMonths: { year: number; month: number }[] = [];
+        for (let i = 1; i <= remaining; i++) {
+          const d = new Date(base.getFullYear(), base.getMonth() + i, 1);
+          futureMonths.push({ year: d.getFullYear(), month: d.getMonth() });
+        }
+        const last = futureMonths[futureMonths.length - 1];
+        return { merchant: t.merchant, current, total, remaining, amountEach, totalLeft: amountEach * remaining, last, futureMonths };
+      })
+      .sort((a, b) => b.totalLeft - a.totalLeft);
+  }, [transactions]);
+
+  const installmentsByMonth = useMemo(() => {
+    const map = new Map<string, { label: string; year: number; month: number; total: number }>();
+    for (const s of openInstallments) {
+      for (const fm of s.futureMonths) {
+        const key = `${fm.year}-${fm.month}`;
+        if (!map.has(key)) {
+          map.set(key, { label: `${MONTH_NAMES[fm.month].slice(0, 3)}/${fm.year}`, year: fm.year, month: fm.month, total: 0 });
+        }
+        map.get(key)!.total += s.amountEach;
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.year !== b.year ? a.year - b.year : a.month - b.month);
+  }, [openInstallments]);
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -381,6 +425,48 @@ function Insights() {
           </div>
         )}
       </GlassCard>
+
+      {/* Open installments */}
+      {openInstallments.length > 0 && (
+        <GlassCard>
+          <SectionTitle
+            title="Parcelas em aberto"
+            hint={`${openInstallments.length} compra${openInstallments.length > 1 ? "s" : ""} · ${brl(openInstallments.reduce((s, i) => s + i.totalLeft, 0))} a pagar`}
+          />
+          <div className="space-y-2 mt-2">
+            {openInstallments.map((item, i) => (
+              <div key={i} className="flex items-center gap-3 glass-soft rounded-xl px-3 py-2.5 text-[12.5px]">
+                <CreditCard className="size-4 text-muted-foreground shrink-0" />
+                <span className="flex-1 truncate font-medium">{item.merchant}</span>
+                <span className="text-muted-foreground tabular-nums shrink-0">
+                  {item.current}/{item.total}
+                </span>
+                <span className="tabular-nums text-[var(--negative)] font-medium shrink-0">
+                  {item.remaining}× {brl(item.amountEach)}
+                </span>
+                <span className="text-muted-foreground text-[11px] shrink-0">
+                  até {item.last ? `${MONTH_NAMES[item.last.month].slice(0, 3)}/${item.last.year}` : "—"}
+                </span>
+              </div>
+            ))}
+          </div>
+          {installmentsByMonth.length > 0 && (
+            <div className="mt-4">
+              <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                Impacto mensal futuro
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {installmentsByMonth.map((m) => (
+                  <div key={`${m.year}-${m.month}`} className="glass-soft rounded-xl px-3 py-1.5 text-[12px]">
+                    <span className="text-muted-foreground">{m.label}</span>
+                    <span className="ml-2 font-medium tabular-nums text-[var(--negative)]">{brl(m.total)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </GlassCard>
+      )}
 
       {/* Recurring summary */}
       {enabledRecurring.length > 0 && (

@@ -134,10 +134,16 @@ export function CustomSelect({
     };
   }, [open]);
 
-  // Apply position imperatively to avoid inline style lint rule
+  // Apply position imperatively — flip upward when near the bottom of the viewport
   useLayoutEffect(() => {
     if (!dropRef.current || !rect) return;
-    dropRef.current.style.top = `${rect.bottom + 4}px`;
+    const dropH = dropRef.current.offsetHeight;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const flipUp = spaceBelow < dropH + 8 && spaceAbove > spaceBelow;
+    dropRef.current.style.top = flipUp
+      ? `${rect.top - dropH - 4}px`
+      : `${rect.bottom + 4}px`;
     dropRef.current.style.left = `${rect.left}px`;
     dropRef.current.style.minWidth = `${rect.width}px`;
   }, [rect]);
@@ -164,11 +170,11 @@ export function CustomSelect({
       </button>
       {open && rect && createPortal(
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="fixed inset-0 z-[199]" onClick={() => setOpen(false)} />
           <div
             ref={dropRef}
             className={cn(
-              "z-50 fixed glass rounded-xl shadow-xl py-1 overflow-y-auto",
+              "z-[200] fixed glass rounded-xl shadow-xl py-1 overflow-y-auto",
               isSmall ? "max-h-48 text-[12px]" : "max-h-60 text-[13px]",
             )}
           >

@@ -2,8 +2,7 @@ import React, {
   createContext,
   useCallback,
   useContext,
-  useEffect,
-  useRef,
+  useEffect,  useMemo,  useRef,
   useState,
 } from "react";
 import type {
@@ -12,6 +11,7 @@ import type {
   Category,
   CategoryRule,
   Goal,
+  HabitualEntry,
   ImportJob,
   Investment,
   InvestmentMove,
@@ -21,6 +21,7 @@ import type {
 } from "../domain/types";
 import { db } from "../data/db";
 import { seedDatabaseIfEmpty } from "../data/seed";
+import { computeCardUsed } from "../lib/selectors";
 
 // ── Context type ──────────────────────────────────────────────────────────────
 
@@ -70,6 +71,12 @@ type AppDataContextValue = {
   addRecurring: (r: Omit<RecurringEntry, "id">) => Promise<RecurringEntry>;
   updateRecurring: (id: string, patch: Partial<RecurringEntry>) => Promise<void>;
   deleteRecurring: (id: string) => Promise<void>;
+
+  // Habitual
+  habitualEntries: HabitualEntry[];
+  addHabitual: (h: Omit<HabitualEntry, "id">) => Promise<HabitualEntry>;
+  updateHabitual: (id: string, patch: Partial<HabitualEntry>) => Promise<void>;
+  deleteHabitual: (id: string) => Promise<void>;
 
   // Import jobs
   addImportJob: (j: Omit<ImportJob, "id">) => Promise<ImportJob>;
@@ -124,6 +131,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   },
   security: {
     pinEnabled: false,
+    pinHash: "",
     autoLock: true,
     autoLockMinutes: 10,
   },
@@ -150,6 +158,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [investmentMoves, setInvestmentMoves] = useState<InvestmentMove[]>([]);
+  const [habitualEntries, setHabitualEntries] = useState<HabitualEntry[]>([]);
 
   const initialized = useRef(false);
 
@@ -160,7 +169,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       try {
         await seedDatabaseIfEmpty();
-        const [txs, cds, stmts, cats, catRules, gls, rec, imps, s, invs, invMoves] = await Promise.all([
+        const [txs, cds, stmts, cats, catRules, gls, rec, imps, s, invs, invMoves, hab] = await Promise.all([
           db.transactions.list(),
           db.cards.list(),
           db.statements.list(),
@@ -172,6 +181,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           db.settings.get(),
           db.investments.list(),
           db.investmentMoves.list(),
+          db.habitual.list(),
         ]);
         setTransactions(txs.sort((a, b) => +new Date(b.date) - +new Date(a.date)));
         setCards(cds);
@@ -187,6 +197,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         applyTheme(loaded.theme);
         setInvestments(invs);
         setInvestmentMoves(invMoves);
+        setHabitualEntries(hab);
       } catch (err) {
         console.error("[AppDataProvider] Failed to initialize:", err);
       } finally {
@@ -347,6 +358,25 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     setRecurring((prev) => prev.filter((r) => r.id !== id));
   }, []);
 
+  // ── Habitual ───────────────────────────────────────────────────────────────
+
+  const addHabitual = useCallback(async (h: Omit<HabitualEntry, "id">): Promise<HabitualEntry> => {
+    const entity: HabitualEntry = { ...h, id: crypto.randomUUID() };
+    await db.habitual.create(entity);
+    setHabitualEntries((prev) => [...prev, entity]);
+    return entity;
+  }, []);
+
+  const updateHabitual = useCallback(async (id: string, patch: Partial<HabitualEntry>) => {
+    const updated = await db.habitual.update(id, patch);
+    setHabitualEntries((prev) => prev.map((h) => (h.id === id ? updated : h)));
+  }, []);
+
+  const deleteHabitual = useCallback(async (id: string) => {
+    await db.habitual.delete(id);
+    setHabitualEntries((prev) => prev.filter((h) => h.id !== id));
+  }, []);
+
   // ── Import Jobs ────────────────────────────────────────────────────────────
 
   const addImportJob = useCallback(async (j: Omit<ImportJob, "id">): Promise<ImportJob> => {
@@ -444,10 +474,15 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
+  const cardsWithComputedUsed = useMemo(
+    () => cards.map((c) => ({ ...c, used: computeCardUsed(c.id, transactions, statements) })),
+    [cards, transactions, statements],
+  );
+
   const value: AppDataContextValue = {
     loading,
     transactions,
-    cards,
+    cards: cardsWithComputedUsed,
     statements,
     categories,
     goals,
@@ -476,6 +511,10 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     addRecurring,
     updateRecurring,
     deleteRecurring,
+    habitualEntries,
+    addHabitual,
+    updateHabitual,
+    deleteHabitual,
     addImportJob,
     updateImportJob,
     investments,

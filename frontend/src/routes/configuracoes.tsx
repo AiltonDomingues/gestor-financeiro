@@ -21,17 +21,7 @@ import { SectionTitle, CustomSelect } from "@/components/ui-bits";
 import { useAppData } from "@/state/app-data-context";
 import { hashPin, PinPad } from "@/components/pin-gate";
 import { db } from "@/data/db";
-import {
-  seedCategories,
-  seedCards,
-  seedStatements,
-  seedGoals,
-  seedRecurring,
-  seedImports,
-  seedCategoryRules,
-  seedTransactions,
-  defaultSettings,
-} from "@/data/seed";
+
 import type { Currency, DateFormat } from "@/domain/types";
 
 export const Route = createFileRoute("/configuracoes")({
@@ -91,7 +81,7 @@ function Configuracoes() {
   // Local state for fields with explicit save buttons
   const [userName, setUserName] = useState(settings.userName);
   const [rates, setRates] = useState({ ...settings.economicRates });
-  const [dangerAction, setDangerAction] = useState<"reset" | "clear" | null>(null);
+  const [dangerAction, setDangerAction] = useState<"clear" | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
   // PIN dialog state: "set-new" | "confirm-new" | "verify-disable" | "verify-change" | "set-change"
@@ -187,19 +177,6 @@ function Configuracoes() {
     setDangerAction(null);
     try {
       await db.adapter.clearAll();
-      if (dangerAction === "reset") {
-        await Promise.all([
-          db.categories.bulkCreate(seedCategories),
-          db.cards.bulkCreate(seedCards),
-          db.statements.bulkCreate(seedStatements),
-          db.goals.bulkCreate(seedGoals),
-          db.recurring.bulkCreate(seedRecurring),
-          db.imports.bulkCreate(seedImports),
-          db.categoryRules.bulkCreate(seedCategoryRules),
-          db.transactions.bulkCreate(seedTransactions),
-          db.settings.save(defaultSettings),
-        ]);
-      }
       window.location.reload();
     } catch {
       showToast("Erro ao executar a operação.", false);
@@ -232,13 +209,9 @@ function Configuracoes() {
                 <AlertTriangle className="size-5 text-destructive" />
               </div>
               <div>
-                <div className="text-[14px] font-semibold">
-                  {dangerAction === "reset" ? "Resetar para dados de demo?" : "Apagar todos os dados?"}
-                </div>
+                <div className="text-[14px] font-semibold">Apagar todos os dados?</div>
                 <div className="text-[12.5px] text-muted-foreground mt-1">
-                  {dangerAction === "reset"
-                    ? "Todos os dados atuais serão removidos e substituídos pelos dados de demonstração. A página será recarregada."
-                    : "Todos os dados serão apagados permanentemente. Faça um backup antes. A página será recarregada."}
+                  Todos os dados serão apagados permanentemente. Faça um backup antes. A página será recarregada.
                 </div>
               </div>
             </div>
@@ -575,16 +548,10 @@ function Configuracoes() {
           <div>
             <div className="text-[14px] font-semibold text-[var(--negative)]">Zona de risco</div>
             <div className="text-[12px] text-muted-foreground mt-0.5">
-              Resete para os dados de demonstração ou apague tudo permanentemente.
+              Apague todos os dados permanentemente.
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => setDangerAction("reset")}
-              className="h-9 px-3 rounded-xl glass-soft hover:bg-accent/40 text-[13px]"
-            >
-              Resetar dados de demo
-            </button>
             <button
               onClick={() => setDangerAction("clear")}
               className="h-9 px-3 rounded-xl text-[13px] bg-[var(--negative)]/15 text-[var(--negative)] hover:bg-[var(--negative)]/25"

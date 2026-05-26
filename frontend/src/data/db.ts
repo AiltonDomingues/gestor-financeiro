@@ -1,4 +1,4 @@
-import { IDBStorageAdapter } from "./storage/idb-adapter";
+import { TauriSQLiteAdapter } from "./storage/tauri-sqlite-adapter";
 import {
   TransactionsRepository,
   CardsRepository,
@@ -12,6 +12,7 @@ import {
   CategoryRulesRepository,
   InvestmentsRepository,
   InvestmentMovesRepository,
+  HabitualRepository,
 } from "./repositories";
 
 /**
@@ -19,7 +20,7 @@ import {
  * All app code should import `db` from here rather than
  * constructing its own adapter or repository instances.
  */
-const adapter = new IDBStorageAdapter();
+const adapter = new TauriSQLiteAdapter();
 
 export const db = {
   transactions: new TransactionsRepository(adapter),
@@ -34,6 +35,7 @@ export const db = {
   categoryRules: new CategoryRulesRepository(adapter),
   investments: new InvestmentsRepository(adapter),
   investmentMoves: new InvestmentMovesRepository(adapter),
+  habitual: new HabitualRepository(adapter),
   /** Expose the raw adapter for backup clear-all and migration use. */
   adapter,
 };
